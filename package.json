@@ -1,0 +1,11 @@
+{
+  "name": "harbor-theme-fathom",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fathom: a dark liquid-glass theme for Harbor with depth and a built-in settings panel.",
+  "type": "module",
+  "scripts": {
+    "build": "node build/build.mjs",
+    "preview": "python -m http.server 5178 --bind 127.0.0.1"
+  }
+}

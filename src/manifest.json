@@ -1,0 +1,25 @@
+{
+  "name": "Fathom",
+  "blurb": "Liquid glass over deep water. Seven color themes, refraction, depth. Press Alt+T.",
+  "version": "1.1.0",
+  "swatch": ["#070b12", "#131b29", "#6fe3d0"],
+  "layout": "custom",
+  "cardStyle": "custom",
+  "buttonStyle": "custom",
+  "fontPair": "general-sans",
+  "bokeh": false,
+  "tokens": {
+    "--color-canvas": "#070b12",
+    "--color-surface": "#0d1420",
+    "--color-elevated": "#131b29",
+    "--color-raised": "#1b2535",
+    "--color-ink": "#eef3fa",
+    "--color-ink-muted": "#a5b1c4",
+    "--color-ink-subtle": "#66738a",
+    "--color-edge": "#2a3a52a0",
+    "--color-edge-soft": "#2a3a5240",
+    "--color-accent": "#6fe3d0",
+    "--color-accent-soft": "#6fe3d02e",
+    "--color-danger": "#ff6b7a"
+  }
+}

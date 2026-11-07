@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en" data-theme-layout="custom" data-theme-card="custom" data-theme-button="custom" data-theme-bokeh="off" style="--poster-radius: 12px">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fathom Test Bench</title>
+<!--
+  A stand-in for Harbor's DOM, built from Harbor's source (v0.9.36): same class names, data attributes,
+  z-index layers and window.harbor API that the theme targets. It loads dist/fathom.json the way
+  Harbor's CustomCodeMount does. Serve the repo root and open /preview/.
+-->
+<link rel="stylesheet" href="harness.css">
+</head>
+<body>
+  <!-- ThemeBackdrop -->
+  <div class="pointer-events-none fixed inset-0 bg-canvas hz-backdrop"></div>
+
+  <div id="root">
+    <div class="relative flex h-full hz-shell">
+      <div class="relative flex min-h-0 min-w-0 flex-1 flex-col hz-col">
+
+        <!-- Home -->
+        <div class="contents" data-hz-view="home">
+          <main class="flex-1 overflow-y-auto px-5 pt-24 pb-14 hz-main hz-home">
+            <div data-tauri-drag-region class="relative flex flex-col gap-12 hz-stack">
+              <div data-scroll-anchor="hero" class="relative">
+                <div class="flex flex-col gap-5">
+                  <div class="relative overflow-hidden rounded-[28px] hz-viewport">
+                    <div class="flex hz-track" id="hz-track"></div>
+                  </div>
+                  <div class="flex justify-center gap-2.5 pt-1 hz-dots" id="hz-dots"></div>
+                </div>
+              </div>
+              <div id="hz-rows" class="hz-rows"></div>
+            </div>
+          </main>
+        </div>
+
+        <!-- Movies (grid page with an opaque main, like most Harbor pages) -->
+        <div class="hidden" data-hz-view="movies">
+          <main class="flex-1 overflow-y-auto bg-canvas hz-main hz-pad">
+            <h1 class="font-display hz-h1">Movies</h1>
+            <div class="hz-grid" id="hz-grid"></div>
+          </main>
+        </div>
+
+        <!-- Detail (deep page: shows the floating back pill) -->
+        <div class="hidden" data-hz-view="meta">
+          <main class="relative h-full overflow-y-auto bg-canvas hz-main">
+            <div class="hz-detail">
+              <img class="object-cover hz-detail-img" id="hz-detail-img" alt="" crossorigin="anonymous">
+              <div class="hz-detail-fade"></div>
+              <div class="hz-detail-copy">
+                <h1 class="font-display hz-h1" id="hz-detail-title"></h1>
+                <p class="hz-p">A detail page. The large backdrop near the top is what Fathom samples for color when there's no hero.</p>
+                <div class="hz-actions"><button class="bg-ink hz-btn hz-btn-ink" type="button">Play</button><button class="bg-accent hz-btn hz-btn-accent" type="button">Trailer</button></div>
+              </div>
+            </div>
+          </main>
+        </div>
+
+        <!-- Settings (Harbor marks chrome hidden here) -->
+        <div class="hidden" data-hz-view="settings">
+          <main class="flex-1 overflow-y-auto bg-canvas hz-main hz-pad">
+            <h1 class="font-display hz-h1">Settings</h1>
+            <div class="bg-surface hz-card">Harbor hides theme chrome on Settings (html[data-chrome-hidden]). Use the bench's Home button to return.</div>
+          </main>
+        </div>
+
+        <!-- Generic pages -->
+        <div class="hidden" data-hz-view="generic">
+          <main class="flex h-full flex-col overflow-hidden hz-main hz-pad">
+            <h1 class="font-display hz-h1" id="hz-generic-title"></h1>
+            <div class="bg-elevated hz-card">This page has no top padding of its own (like Harbor's Calendar), so it shows whether the menu bar pushes content down correctly.</div>
+          </main>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FloatingBack (custom layout: offsetLeft 20, offsetTop 20) -->
+  <button type="button" aria-label="Back" id="hz-back" class="hz-back" style="position: fixed; top: 20px; inset-inline-start: 20px; z-index: 70" hidden>‹ Back</button>
+
+  <!-- WindowControls -->
+  <div class="fixed end-3 top-3 z-[120] hz-wc" data-tauri-drag-region="false"><i></i><i></i><i></i></div>
+
+  <!-- Search overlay -->
+  <div class="harbor-search-backdrop hz-search" id="hz-search" hidden>
+    <div class="hz-search-box bg-elevated"><input type="search" placeholder="Search movies, shows, people" aria-label="Search"></div>
+  </div>
+
+  <!-- Modal -->
+  <div class="hz-modal-wrap" id="hz-modal" hidden>
+    <div class="modal-panel hz-modal">
+      <h2 class="font-display">Who's watching?</h2>
+      <p class="hz-p">A Harbor modal (.modal-panel). Fathom turns it into glass.</p>
+      <button type="button" class="bg-accent hz-btn hz-btn-accent" data-hz="close-modal">Done</button>
+    </div>
+  </div>
+
+  <!-- Player stand-in -->
+  <div class="hz-player" id="hz-player" data-harbor-player hidden><span>Player (chrome hidden). Press Esc or the bench button to exit.</span></div>
+
+  <!-- Harbor's custom overlay mount -->
+  <div id="harbor-custom-overlay" aria-hidden="true" class="hz-overlay"></div>
+
+  <!-- Test bench controls (not part of Harbor) -->
+  <details class="hz-bench" open>
+    <summary>Test bench</summary>
+    <div class="hz-bench-grid">
+      <button type="button" data-hz="home">Home</button>
+      <button type="button" data-hz="movies">Movies page</button>
+      <button type="button" data-hz="detail">Detail page</button>
+      <button type="button" data-hz="calendar">Calendar page</button>
+      <button type="button" data-hz="settings">Settings page</button>
+      <button type="button" data-hz="player">Player on/off</button>
+      <button type="button" data-hz="trailer">Trailer on/off</button>
+      <button type="button" data-hz="modal">Open modal</button>
+      <button type="button" data-hz="reload">Reload theme</button>
+      <button type="button" data-hz="unload">Unload theme</button>
+      <button type="button" data-hz="forget">Forget settings</button>
+    </div>
+    <p class="hz-status" id="hz-status"></p>
+  </details>
+
+  <script src="harness.js"></script>
+</body>
+</html>
