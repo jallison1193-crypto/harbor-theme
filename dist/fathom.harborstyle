@@ -225,10 +225,13 @@ html[data-fx-dockpos="left"] #fx-dock { flex-direction: column; left: var(--fx-e
 html[data-fx-autohide="on"]:not([data-fx-reveal]) #fx-dock { translate: -50% calc(100% + 30px); }
 html[data-fx-autohide="on"][data-fx-dockpos="left"]:not([data-fx-reveal]) #fx-dock { translate: calc(-100% - 30px) -50%; }
 #fx-dock .fx-di { --s: 1; --fx-pill-inset: 3px; flex: none; padding: 0; display: grid; place-items: center; color: var(--color-ink); opacity: .78;
-  width: calc(var(--fx-dock-size) * var(--s)); height: calc(var(--fx-dock-size) * var(--s)); border-radius: 50%;
-  transition: width .16s ease, height .16s ease, transform .35s var(--fx-spring), opacity .2s ease, color .2s ease; }
-/* The glyph scales with the item instead of resizing, so it stays exactly centered and is not re-rasterized. */
-#fx-dock .fx-di > .fx-ico { width: 22px; height: 22px; transform: scale(var(--s)); transition: transform .16s ease; }
+  width: var(--fx-dock-size); height: var(--fx-dock-size); border-radius: 50%;
+  transition: transform .35s var(--fx-spring), opacity .2s ease, color .2s ease; }
+/* Magnification is transform-only: theme.js animates --s every frame and the glyph and the selection pill scale
+   in place, centered in their slot. Nothing changes size, so the dock never re-lays out or re-blurs its backdrop
+   while you sweep across it, and the refraction can stay on. */
+#fx-dock .fx-di > .fx-ico { width: 22px; height: 22px; transform: scale(var(--s)); will-change: transform; }
+#fx-dock .fx-di[data-active]::before { transform: scale(min(var(--s), 1.3)); }
 #fx-dock .fx-di:hover { opacity: 1; }
 #fx-dock .fx-di[data-active] { opacity: 1; color: var(--color-accent); }
 #fx-dock .fx-sep { flex: none; width: 1px; height: calc(var(--fx-dock-size) - var(--fx-s4)); margin: 0 var(--fx-s1); background: rgb(255 255 255 / .14); position: relative; z-index: 1; }
@@ -888,7 +891,6 @@ html[data-fx] .harbor-chrome-proxy { visibility: hidden !important; }
     setAttr("fx-perf", perf);
     setAttr("fx-motion", motion ? "on" : "off");
     if (!depthOn()) { resetTilt(); resetHero(); }
-    magRest = null;
     const sig = JSON.stringify([s.chrome, navList(), menubarOn(), s.dockPos, s.clock, s.date, s.sidebarCompact]);
     if (sig !== chromeSig) { chromeSig = sig; renderChrome(); }
     heroSig = "";
@@ -902,8 +904,8 @@ html[data-fx] .harbor-chrome-proxy { visibility: hidden !important; }
      strongest at the edge. Built at half resolution on idle, only when a shape's size really changes.
      The lens is never switched on or off abruptly. Its strength (feDisplacementMap scale) fades to zero first, and
      only then does the element drop the lens filter, which at zero strength looks exactly like the plain glass.
-     It fades out while the dock magnifies (the map is sized for the resting dock), while you scroll, and while a
-     shape is being rebuilt, and fades back in once things settle. */
+     It fades out while you scroll and while a shape is being rebuilt, and fades back in once things settle.
+     (Dock magnification only scales icons, so the dock keeps its size and its lens.) */
   function lensMap(w, h, r, edge) {
     const q = 2, W = Math.max(2, Math.ceil(w / q)), H = Math.max(2, Math.ceil(h / q));
     const E = Math.max(1, edge / q), hw = W / 2, hh = H / 2, R = Math.min(r / q, hw, hh);
@@ -936,9 +938,9 @@ html[data-fx] .harbor-chrome-proxy { visibility: hidden !important; }
   // One record per refracting shape: { el, key, amt (current strength), target, raf, building }
   const LENS_PARTS = { dock: ["#fx-dock", 18], island: ["#fx-island", 16], sidebar: ["#fx-sidebar", 22] };
   const lenses = new Map();
-  let magnifying = false, lensTimer = 0;
+  let lensTimer = 0;
   const lensStrength = () => Math.round(8 + 44 * state.refractAmt);
-  const lensQuiet = () => magnifying || root.hasAttribute("data-fx-scrolling") || doc.hidden;
+  const lensQuiet = () => root.hasAttribute("data-fx-scrolling") || doc.hidden;
   function fadeLens(L, to, ms) {
     cancelAnimationFrame(L.raf);
     L.target = to;
@@ -961,7 +963,7 @@ html[data-fx] .harbor-chrome-proxy { visibility: hidden !important; }
     const r = Math.min(parseFloat(getComputedStyle(L.el).borderTopLeftRadius) || 0, w / 2, h / 2);
     const key = [w, h, Math.round(r)].join("x");
     if (L.key === key) return true;
-    // Only build for a size that has held still for a moment (the dock eases back after magnifying).
+    // Only build for a size that has held still for a moment (a resize or a settings change may still be animating).
     const now = performance.now();
     if (L.seen !== key) { L.seen = key; L.seenAt = now; return false; }
     if (now - L.seenAt < 250) return false;
@@ -992,7 +994,7 @@ html[data-fx] .harbor-chrome-proxy { visibility: hidden !important; }
       if (L.target !== want || (!L.raf && Math.abs(L.amt - want) > 0.01)) fadeLens(L, want, 320);
     }
   }
-  // Fade every lens out right now (pointer entered the dock, scrolling started). No idle wait: this must beat the motion.
+  // Fade every lens out right now (scrolling started). No idle wait: this must beat the motion.
   function quietLenses() { lenses.forEach((L) => { if (L.target !== 0 || L.amt > 0) fadeLens(L, 0, 100); }); scheduleLenses(320); }
   function scheduleLenses(ms) { clearTimeout(lensTimer); lensTimer = setTimeout(() => idle(syncLenses), ms == null ? 160 : ms); }
   const ro = win.ResizeObserver ? new ResizeObserver(() => { scheduleLenses(); measureSidebar(); }) : null;
@@ -1345,49 +1347,64 @@ html[data-fx] .harbor-chrome-proxy { visibility: hidden !important; }
   navObserver.observe(chrome, { subtree: true, attributes: true, attributeFilter: ["data-active"], attributeOldValue: true });
   cleanups.push(() => navObserver.disconnect());
 
-  // Dock magnification: read every icon's position first, then write sizes (one layout per frame).
-  // Positions are measured at rest size, so the curve doesn't feed back on itself while icons grow.
-  let magRaf = 0, magX = 0, magY = 0, magRest = null, magEndTimer = 0;
-  function resetMag() {
-    chrome.querySelectorAll("#fx-dock .fx-di").forEach((d) => d.style.removeProperty("--s"));
-    if (magnifying) {
-      clearTimeout(magEndTimer);
-      // Let the icons ease back to rest size before the lens comes back.
-      magEndTimer = setTimeout(() => { magnifying = false; magRest = null; scheduleLenses(0); }, 260);
+  // Dock magnification, animated per frame. 1.2 first resized the icons with 0.16s CSS transitions that a fast
+  // sweep retargeted every frame, and every resize re-laid out the dock and re-blurred its backdrop: smooth when
+  // slow, choppy when quick. Now the magnified spot glides after the pointer (time constant ~45ms), the effect
+  // grows in and out on enter and leave, sizes follow a smooth cosine falloff, and only transforms change
+  // (see #fx-dock .fx-di in theme.css). The loop runs only while something is still moving.
+  const MAG_FOLLOW = 0.045, MAG_GROW = 0.09, MAG_SHRINK = 0.12; // seconds
+  let magRaf = 0, magPtr = null, magPos = null, magAmt = 0, magWant = 0, magLast = 0;
+  // Item centers relative to the dock's center, from the layout rules in theme.css (8px padding, 4px gaps,
+  // separators 1px plus 4px margins), so nothing is measured while icons are scaled.
+  function restCenters(dock) {
+    const size = state.dockSize, kids = [...dock.children].filter((n) => n.classList.contains("fx-di") || n.classList.contains("fx-sep"));
+    const out = [];
+    let pos = 8;
+    kids.forEach((n, i) => {
+      const len = n.classList.contains("fx-sep") ? 9 : size;
+      if (n.classList.contains("fx-di")) out.push(pos + len / 2);
+      pos += len + (i < kids.length - 1 ? 4 : 0);
+    });
+    const total = pos + 8;
+    return out.map((c) => c - total / 2);
+  }
+  const kickMag = () => { if (!magRaf && !disposed) magRaf = requestAnimationFrame(magFrame); };
+  function magFrame(now) {
+    magRaf = 0;
+    const dock = chrome.querySelector("#fx-dock");
+    if (!dock) { magAmt = 0; magPos = null; magLast = 0; return; }
+    const dt = magLast ? Math.min(0.05, (now - magLast) / 1000) : 1 / 120;
+    magLast = now;
+    const vertical = state.dockPos === "left";
+    const items = [...dock.querySelectorAll(".fx-di")], rest = restCenters(dock);
+    const dr = dock.getBoundingClientRect(), center = vertical ? dr.top + dr.height / 2 : dr.left + dr.width / 2;
+    const target = magPtr == null ? magPos : magPtr - center;
+    if (target != null) magPos = magPos == null ? target : magPos + (target - magPos) * (1 - Math.exp(-dt / MAG_FOLLOW));
+    magAmt += (magWant - magAmt) * (1 - Math.exp(-dt / (magWant > magAmt ? MAG_GROW : MAG_SHRINK)));
+    if (magWant === 0 && magAmt < 0.003) {
+      items.forEach((d) => d.style.removeProperty("--s"));
+      magAmt = 0; magPos = null; magLast = 0;
+      return;
     }
+    const reach = state.dockSize * 2.4, A = state.magnifyAmt * magAmt;
+    items.forEach((d, i) => {
+      const x = Math.min(1, Math.abs((magPos || 0) - rest[i]) / reach);
+      const v = (1 + A * (0.5 + 0.5 * Math.cos(Math.PI * x))).toFixed(3);
+      if (d.style.getPropertyValue("--s") !== v) d.style.setProperty("--s", v);
+    });
+    const still = Math.abs((target == null ? magPos : target) - magPos) < 0.25 && Math.abs(magWant - magAmt) < 0.003;
+    if (!still) kickMag(); else magLast = 0;
   }
   listen(chrome, "pointermove", (e) => {
     if (!e.target.closest || !e.target.closest("#fx-dock") || !state.magnify || !motionOn()) return;
-    magX = e.clientX; magY = e.clientY;
-    clearTimeout(magEndTimer);
-    if (!magnifying) { magnifying = true; quietLenses(); }
-    if (magRaf) return;
-    magRaf = requestAnimationFrame(() => {
-      magRaf = 0;
-      const vertical = state.dockPos === "left", reach = state.dockSize * 2.6;
-      const items = [...chrome.querySelectorAll("#fx-dock .fx-di")];
-      if (!magRest || magRest.length !== items.length) {
-        // centers along the dock at rest, relative to the dock's start edge
-        const dock = chrome.querySelector("#fx-dock"), dr = dock.getBoundingClientRect();
-        let pos = vertical ? dr.top : dr.left;
-        magRest = { start: pos, centers: items.map((d) => { const r = d.getBoundingClientRect(), c = (vertical ? r.top + r.height / 2 : r.left + r.width / 2) - pos; return c; }), length: items.length };
-      }
-      const dock = chrome.querySelector("#fx-dock"), dr = dock.getBoundingClientRect();
-      // The dock grows symmetrically around its center, so map the pointer back into rest coordinates.
-      const restLen = magRest.centers.length ? magRest.centers[magRest.centers.length - 1] + magRest.centers[0] : 0;
-      const nowLen = vertical ? dr.height : dr.width, mid = (vertical ? dr.top : dr.left) + nowLen / 2;
-      const p = (vertical ? magY : magX) - mid + restLen / 2;
-      items.forEach((d, i) => {
-        const dist = Math.abs(p - magRest.centers[i]);
-        d.style.setProperty("--s", (1 + state.magnifyAmt * Math.max(0, 1 - dist / reach)).toFixed(3));
-      });
-    });
+    magPtr = state.dockPos === "left" ? e.clientY : e.clientX;
+    magWant = 1;
+    kickMag();
   });
   listen(chrome, "pointerout", (e) => {
     const dock = chrome.querySelector("#fx-dock");
-    if (dock && !dock.contains(e.relatedTarget)) resetMag();
+    if (dock && !dock.contains(e.relatedTarget) && magWant) { magWant = 0; magPtr = null; kickMag(); }
   });
-  cleanups.push(() => clearTimeout(magEndTimer));
   const reveal = (on) => { if (on) root.setAttribute("data-fx-reveal", ""); else root.removeAttribute("data-fx-reveal"); };
   listen(chrome, "focusin", () => reveal(true));
   listen(chrome, "focusout", () => reveal(false));

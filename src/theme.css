@@ -200,10 +200,13 @@ html[data-fx-dockpos="left"] #fx-dock { flex-direction: column; left: var(--fx-e
 html[data-fx-autohide="on"]:not([data-fx-reveal]) #fx-dock { translate: -50% calc(100% + 30px); }
 html[data-fx-autohide="on"][data-fx-dockpos="left"]:not([data-fx-reveal]) #fx-dock { translate: calc(-100% - 30px) -50%; }
 #fx-dock .fx-di { --s: 1; --fx-pill-inset: 3px; flex: none; padding: 0; display: grid; place-items: center; color: var(--color-ink); opacity: .78;
-  width: calc(var(--fx-dock-size) * var(--s)); height: calc(var(--fx-dock-size) * var(--s)); border-radius: 50%;
-  transition: width .16s ease, height .16s ease, transform .35s var(--fx-spring), opacity .2s ease, color .2s ease; }
-/* The glyph scales with the item instead of resizing, so it stays exactly centered and is not re-rasterized. */
-#fx-dock .fx-di > .fx-ico { width: 22px; height: 22px; transform: scale(var(--s)); transition: transform .16s ease; }
+  width: var(--fx-dock-size); height: var(--fx-dock-size); border-radius: 50%;
+  transition: transform .35s var(--fx-spring), opacity .2s ease, color .2s ease; }
+/* Magnification is transform-only: theme.js animates --s every frame and the glyph and the selection pill scale
+   in place, centered in their slot. Nothing changes size, so the dock never re-lays out or re-blurs its backdrop
+   while you sweep across it, and the refraction can stay on. */
+#fx-dock .fx-di > .fx-ico { width: 22px; height: 22px; transform: scale(var(--s)); will-change: transform; }
+#fx-dock .fx-di[data-active]::before { transform: scale(min(var(--s), 1.3)); }
 #fx-dock .fx-di:hover { opacity: 1; }
 #fx-dock .fx-di[data-active] { opacity: 1; color: var(--color-accent); }
 #fx-dock .fx-sep { flex: none; width: 1px; height: calc(var(--fx-dock-size) - var(--fx-s4)); margin: 0 var(--fx-s1); background: rgb(255 255 255 / .14); position: relative; z-index: 1; }

@@ -28,7 +28,8 @@ Balanced is the default. Full adds refraction and light rays; Lite drops blur en
 - The moving wallpaper is plain gradient layers that are drawn once and only moved, about 12 steps a second. (Soft masks made each layer an offscreen pass that was redrawn on every step, and every glass surface above re-blurred with it.)
 - The banner card's glass is a small image of what sits behind it (artwork plus Harbor's shading), blurred, saturated and, in Full, refracted at the edges, made once per slide in a canvas. Tilting and scrolling only move that image; no CSS filter runs. Artwork that can't be read into a canvas falls back to the same picture filtered by CSS. While Harbor plays a trailer, the card switches to a live blur.
 - Light rays (Full) are drawn once into an image with their fade baked in.
-- Refraction on the dock, island and sidebar (Full, Chromium only) never switches on or off abruptly. Its strength fades to zero while the dock magnifies, while you scroll, and while a shape is rebuilt, then fades back. The menu bar no longer refracts.
+- Dock magnification only scales the icons in place (no resizing), animated per frame after a smoothed pointer position, so fast sweeps stay smooth and the dock glass never changes size. On the bench a fast back-and-forth sweep went from 43% slow frames to under 7%.
+- Refraction on the dock, island and sidebar (Full, Chromium only) never switches on or off abruptly. Its strength fades to zero while you scroll and while a shape is rebuilt, then fades back. The menu bar no longer refracts.
 - The pointer light hides while the pointer is over Fathom's glass, so the glass never re-blurs a moving light under it.
 - Row dimming is set by script when the hovered row changes, instead of a page-wide `:has(:hover)` rule.
 - The rim light turns toward the pointer at most five times a second.
