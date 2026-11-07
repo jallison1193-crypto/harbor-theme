@@ -7,7 +7,7 @@
   const KEY = "fathom.settings.v1";
   const AUTO_KEY = "fathom.auto.v1";
   const SEEN_KEY = "fathom.seen.v1";
-  const SCHEMA = 2;
+  const SCHEMA = 3;
   const doc = document, root = doc.documentElement, win = window;
   const SVGNS = "http://www.w3.org/2000/svg";
   // Edge refraction uses backdrop-filter: url(#svg-filter), which only Chromium renders.
@@ -114,11 +114,11 @@
     font: "serif", heroGlass: true, surfaces: true, buttons: "liquid",
     chrome: "dock", menubar: true, clock: true, date: true, clock24: false,
     dockPos: "bottom", dockSize: 48, magnify: true, magnifyAmt: 0.5, dockAutohide: false, dockLabels: true,
-    sidebarW: 220, sidebarCompact: false,
+    sidebarFit: true, sidebarW: 200, sidebarCompact: false,
     navSource: "harbor", nav: defaultNav(),
     depth: 1, tilt: 10, heroParallax: true, light: true, lightAmt: 0.5, focusRow: true,
     hover: "tilt", sheen: true, cardGlow: true, posterRadiusOverride: false, posterRadius: 14,
-    perf: "auto", pauseOnScroll: true, motion: "system", speed: 1,
+    perf: "balanced", pauseOnScroll: true, motion: "system", speed: 1,
   };
   // Keys a Look may change. Colors, layout and navigation stay as the user set them.
   const LOOK_KEYS = ["blur", "frost", "rim", "sat", "grain", "refraction", "refractAmt", "artTint", "artStrength", "hoverTint",
@@ -151,12 +151,17 @@
   function sanitize(raw) {
     const s = { ...DEFAULTS, nav: defaultNav() };
     if (!raw || typeof raw !== "object") return s;
-    const oldSchema = raw.schema !== SCHEMA;
+    const from = typeof raw.schema === "number" ? raw.schema : 1;
     for (const k in DEFAULTS) {
       if (k === "nav" || k === "schema") continue;
-      if (oldSchema && LOOK_KEYS.includes(k)) continue; // the glass changed in 1.1: start looks from the new defaults
+      if (from < 2 && LOOK_KEYS.includes(k)) continue; // the glass changed in 1.1: start looks from the new defaults
       if (k in raw && typeof raw[k] === typeof DEFAULTS[k]) s[k] = raw[k];
     }
+    // 1.2: Balanced replaced Auto as the default. Auto was only ever saved because it was the default, so move it once.
+    if (from < 3 && s.perf === "auto") s.perf = "balanced";
+    if (from < 3) s.sidebarFit = true; // the sidebar now fits its labels; 1.1 only had a fixed width
+    s.sidebarW = clamp(s.sidebarW, 140, 300);
+    if (!["auto", "full", "balanced", "lite"].includes(s.perf)) s.perf = DEFAULTS.perf;
     if (Array.isArray(raw.nav)) {
       const known = new Map(defaultNav().map((n) => [n.id, n]));
       const out = [];
@@ -366,6 +371,7 @@
     setAttr("fx-autohide", s.chrome === "dock" && s.dockAutohide ? "on" : "off");
     setAttr("fx-labels", s.dockLabels ? "on" : "off");
     setAttr("fx-compact", s.sidebarCompact ? "on" : "off");
+    setAttr("fx-sidebarfit", s.sidebarFit ? "on" : "off");
     setAttr("fx-wall", s.wall === "image" && !safeUrl(s.wallImage.trim()) ? "currents" : s.wall);
     setAttr("fx-wallmotion", s.wallMotion && motion ? "on" : "off");
     setAttr("fx-rays", s.rays && motion ? "on" : "off");
@@ -388,20 +394,25 @@
     setAttr("fx-perf", perf);
     setAttr("fx-motion", motion ? "on" : "off");
     if (!depthOn()) { resetTilt(); resetHero(); }
+    magRest = null;
     const sig = JSON.stringify([s.chrome, navList(), menubarOn(), s.dockPos, s.clock, s.date, s.sidebarCompact]);
     if (sig !== chromeSig) { chromeSig = sig; renderChrome(); }
     heroSig = "";
     syncHero();
+    syncRays();
     scheduleLenses();
   }
 
   /* ---------- edge refraction (Chromium) ----------
      A displacement map per glass shape: neutral grey inside, pushing the backdrop inward near the rim,
-     strongest at the edge. Built at half resolution on idle, rebuilt only when a shape's size settles. */
-  const lensBuilt = new Map();
-  function lensMapURL(w, h, r, edge, pad) {
+     strongest at the edge. Built at half resolution on idle, only when a shape's size really changes.
+     The lens is never switched on or off abruptly. Its strength (feDisplacementMap scale) fades to zero first, and
+     only then does the element drop the lens filter, which at zero strength looks exactly like the plain glass.
+     It fades out while the dock magnifies (the map is sized for the resting dock), while you scroll, and while a
+     shape is being rebuilt, and fades back in once things settle. */
+  function lensMap(w, h, r, edge) {
     const q = 2, W = Math.max(2, Math.ceil(w / q)), H = Math.max(2, Math.ceil(h / q));
-    const P = pad / q, E = Math.max(1, edge / q), hw = W / 2 - P, hh = H / 2 - P, R = Math.min(r / q, hw, hh);
+    const E = Math.max(1, edge / q), hw = W / 2, hh = H / 2, R = Math.min(r / q, hw, hh);
     const c = el("canvas"); c.width = W; c.height = H;
     const ctx = c.getContext("2d"), im = ctx.createImageData(W, H), d = im.data;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -415,7 +426,7 @@
       d[i] = 128 - nx * m * 127; d[i + 1] = 128 - ny * m * 127; d[i + 2] = 128; d[i + 3] = 255;
     }
     ctx.putImageData(im, 0, 0);
-    return c.toDataURL();
+    return c;
   }
   function lensFilter(id) {
     let f = filters.querySelector("#fx-lens-" + id);
@@ -423,64 +434,224 @@
       f = doc.createElementNS(SVGNS, "filter");
       f.setAttribute("id", "fx-lens-" + id);
       for (const [k, v] of [["x", "0"], ["y", "0"], ["width", "1"], ["height", "1"], ["filterUnits", "objectBoundingBox"], ["primitiveUnits", "userSpaceOnUse"], ["color-interpolation-filters", "sRGB"]]) f.setAttribute(k, v);
-      f.innerHTML = '<feFlood flood-color="rgb(128,128,128)" result="n"/><feImage x="0" y="0" preserveAspectRatio="none" result="m0"/><feComposite in="m0" in2="n" operator="over" result="m"/><feDisplacementMap in="SourceGraphic" in2="m" xChannelSelector="R" yChannelSelector="G"/>';
+      f.innerHTML = '<feFlood flood-color="rgb(128,128,128)" result="n"/><feImage x="0" y="0" preserveAspectRatio="none" result="m0"/><feComposite in="m0" in2="n" operator="over" result="m"/><feDisplacementMap in="SourceGraphic" in2="m" xChannelSelector="R" yChannelSelector="G" scale="0"/>';
       filters.append(f);
     }
     return f;
   }
-  async function buildLens(id, target, w, h, r, edge, pad, scale) {
-    const f = lensFilter(id);
-    f.querySelector("feDisplacementMap").setAttribute("scale", String(scale));
-    const key = [w, h, Math.round(r), edge, pad].join("x");
-    if (lensBuilt.get(id) !== key) {
-      const url = lensMapURL(w, h, r, edge, pad);
-      const probe = new Image(); probe.src = url;
-      try { await probe.decode(); } catch (e) { /* still usable */ }
-      if (disposed) return;
-      const fi = f.querySelector("feImage");
-      fi.setAttribute("width", String(w)); fi.setAttribute("height", String(h)); fi.setAttribute("href", url);
-      lensBuilt.set(id, key);
-    }
-    if (target.isConnected) target.setAttribute("data-fx-lens-ready", "");
+  // One record per refracting shape: { el, key, amt (current strength), target, raf, building }
+  const LENS_PARTS = { dock: ["#fx-dock", 18], island: ["#fx-island", 16], sidebar: ["#fx-sidebar", 22] };
+  const lenses = new Map();
+  let magnifying = false, lensTimer = 0;
+  const lensStrength = () => Math.round(8 + 44 * state.refractAmt);
+  const lensQuiet = () => magnifying || root.hasAttribute("data-fx-scrolling") || doc.hidden;
+  function fadeLens(L, to, ms) {
+    cancelAnimationFrame(L.raf);
+    L.target = to;
+    const disp = lensFilter(L.id).querySelector("feDisplacementMap");
+    if (to > 0 && L.el.isConnected) L.el.setAttribute("data-fx-lens-ready", "");
+    const from = L.amt, t0 = performance.now(), dur = motionOn() ? ms : 0;
+    const step = (now) => {
+      const k = dur ? clamp((now - t0) / dur, 0, 1) : 1, e = k * k * (3 - 2 * k);
+      L.amt = from + (to - from) * e;
+      disp.setAttribute("scale", L.amt.toFixed(2));
+      if (k < 1 && !disposed) { L.raf = requestAnimationFrame(step); return; }
+      L.raf = 0;
+      if (to === 0) L.el.removeAttribute("data-fx-lens-ready"); // invisible at zero strength
+    };
+    L.raf = requestAnimationFrame(step);
   }
-  const radiusOf = (node, w, h) => { const v = parseFloat(getComputedStyle(node).borderTopLeftRadius) || 0; return Math.min(v, w / 2, h / 2); };
-  let lensTimer = 0, magnifying = false;
-  function scheduleLenses() { clearTimeout(lensTimer); lensTimer = setTimeout(() => idle(buildLenses), 160); }
-  function buildLenses() {
-    if (!lensOn()) { doc.querySelectorAll("[data-fx-lens-ready]").forEach((n) => n.removeAttribute("data-fx-lens-ready")); return; }
-    const scale = Math.round(8 + 44 * state.refractAmt);
-    const parts = [["dock", "#fx-dock", 18, 1], ["island", "#fx-island", 16, 1], ["sidebar", "#fx-sidebar", 22, 1], ["menubar", "#fx-menubar", 12, 0.6]];
-    for (const [id, sel, edge, k] of parts) {
-      const t = chrome.querySelector(sel);
-      if (!t || (id === "dock" && magnifying)) continue;
-      const w = t.offsetWidth, h = t.offsetHeight;
-      if (w && h) buildLens(id, t, w, h, radiusOf(t, w, h), edge, 0, Math.round(scale * k));
-    }
-    const card = doc.querySelector('[data-scroll-anchor="hero"] [aria-hidden="false"] .max-w-2xl[data-fx-bd]') || doc.querySelector('[data-scroll-anchor="hero"] .max-w-2xl[data-fx-bd]');
-    if (card && card.offsetWidth) {
-      const pad = parseFloat(card.style.getPropertyValue("--fx-pad")) || 0;
-      const w = card.offsetWidth + pad * 2, h = card.offsetHeight + pad * 2;
-      buildLens("hero", card, w, h, 26, 30, pad, scale).then(() => {
-        doc.querySelectorAll('[data-scroll-anchor="hero"] .max-w-2xl[data-fx-bd]').forEach((n) => n.setAttribute("data-fx-lens-ready", ""));
-      });
+  async function readyLens(L) {
+    const w = L.el.offsetWidth, h = L.el.offsetHeight;
+    if (!w || !h) return false;
+    const r = Math.min(parseFloat(getComputedStyle(L.el).borderTopLeftRadius) || 0, w / 2, h / 2);
+    const key = [w, h, Math.round(r)].join("x");
+    if (L.key === key) return true;
+    // Only build for a size that has held still for a moment (the dock eases back after magnifying).
+    const now = performance.now();
+    if (L.seen !== key) { L.seen = key; L.seenAt = now; return false; }
+    if (now - L.seenAt < 250) return false;
+    if (L.amt > 0 || L.el.hasAttribute("data-fx-lens-ready")) { fadeLens(L, 0, 120); return false; } // fade first, rebuild next pass
+    if (L.building) return false;
+    L.building = true;
+    const url = lensMap(w, h, r, LENS_PARTS[L.id][1]).toDataURL();
+    const probe = new Image(); probe.src = url;
+    try { await probe.decode(); } catch (e) { /* still usable */ }
+    L.building = false;
+    if (disposed || !L.el.isConnected) return false;
+    const fi = lensFilter(L.id).querySelector("feImage");
+    fi.setAttribute("width", String(w)); fi.setAttribute("height", String(h)); fi.setAttribute("href", url);
+    L.key = key;
+    return true;
+  }
+  // Called whenever something might change what the lenses should be doing. Cheap when nothing changed.
+  async function syncLenses() {
+    for (const id in LENS_PARTS) {
+      const node = chrome.querySelector(LENS_PARTS[id][0]);
+      let L = lenses.get(id);
+      if (L && L.el !== node) { cancelAnimationFrame(L.raf); L.el.removeAttribute("data-fx-lens-ready"); lenses.delete(id); L = null; }
+      if (!node) continue;
+      if (!L) { L = { id, el: node, key: "", seen: "", seenAt: 0, amt: 0, target: 0, raf: 0, building: false }; lenses.set(id, L); lensFilter(id).querySelector("feDisplacementMap").setAttribute("scale", "0"); }
+      const want = lensOn() && !lensQuiet() ? lensStrength() : 0;
+      if (!want) { if (L.target !== 0 || L.amt > 0) fadeLens(L, 0, 140); continue; }
+      if (!(await readyLens(L))) { scheduleLenses(200); continue; }
+      if (L.target !== want || (!L.raf && Math.abs(L.amt - want) > 0.01)) fadeLens(L, want, 320);
     }
   }
-  const ro = win.ResizeObserver ? new ResizeObserver(() => scheduleLenses()) : null;
-  cleanups.push(() => { clearTimeout(lensTimer); if (ro) ro.disconnect(); });
+  // Fade every lens out right now (pointer entered the dock, scrolling started). No idle wait: this must beat the motion.
+  function quietLenses() { lenses.forEach((L) => { if (L.target !== 0 || L.amt > 0) fadeLens(L, 0, 100); }); scheduleLenses(320); }
+  function scheduleLenses(ms) { clearTimeout(lensTimer); lensTimer = setTimeout(() => idle(syncLenses), ms == null ? 160 : ms); }
+  const ro = win.ResizeObserver ? new ResizeObserver(() => { scheduleLenses(); measureSidebar(); }) : null;
+  cleanups.push(() => { clearTimeout(lensTimer); if (ro) ro.disconnect(); lenses.forEach((L) => cancelAnimationFrame(L.raf)); });
+  // The sidebar is as wide as its labels; content to its right is offset by its measured width.
+  let sidebarW = 0;
+  function measureSidebar() {
+    const sb = chrome.querySelector("#fx-sidebar");
+    const w = sb ? Math.round(sb.getBoundingClientRect().width) : 0;
+    if (w === sidebarW) return;
+    sidebarW = w;
+    if (w) root.style.setProperty("--fx-sidebar-w", w + "px"); else root.style.removeProperty("--fx-sidebar-w");
+  }
 
-  /* ---------- hero glass: a blurred copy of the hero image under the card ---------- */
+  /* ---------- light rays: drawn once into an image (half resolution) with their fade baked in ---------- */
+  let raysKey = "", raysUrl = "";
+  function syncRays() {
+    if (root.getAttribute("data-fx-rays") !== "on" || perfLevel() !== "full") return;
+    const W = Math.round((win.innerWidth * 1.2) / 2), H = Math.round((win.innerHeight * 0.9) / 2);
+    const h = effHue(), c = state.chroma, key = [W, H, h.toFixed(0), c].join("|");
+    if (!W || !H || key === raysKey) return;
+    raysKey = key;
+    idle(() => {
+      const cv = el("canvas"); cv.width = W; cv.height = H;
+      const x = cv.getContext("2d");
+      x.fillStyle = `oklch(0.86 ${(0.08 * c).toFixed(3)} ${h.toFixed(1)})`; x.fillRect(0, 0, 1, 1);
+      const [r, g, b] = x.getImageData(0, 0, 1, 1).data;
+      const im = x.createImageData(W, H), d = im.data;
+      // Stripes 4px wide every 140px at 105deg, faded inside an ellipse high on the left.
+      const vx = Math.sin((105 * Math.PI) / 180), vy = -Math.cos((105 * Math.PI) / 180);
+      const cx = 0.383 * W, cy = 0.2 * H, rx = 0.7 * W, ry = 0.78 * H;
+      for (let py = 0; py < H; py++) for (let px = 0; px < W; px++) {
+        const fade = 1 - Math.hypot((px - cx) / rx, (py - cy) / ry);
+        if (fade <= 0) continue;
+        const m = ((((px * 2 * vx + py * 2 * vy) % 140) + 140) % 140);
+        const line = clamp(2.5 - Math.abs(m - 62), 0, 1);
+        if (!line) continue;
+        const i = (py * W + px) * 4;
+        d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = Math.round(255 * 0.02 * line * fade);
+      }
+      x.putImageData(im, 0, 0);
+      cv.toBlob((blob) => {
+        if (!blob || disposed || raysKey !== key) return;
+        if (raysUrl) URL.revokeObjectURL(raysUrl);
+        raysUrl = URL.createObjectURL(blob);
+        wall.style.setProperty("--fx-rays-img", `url("${raysUrl}")`);
+      });
+    });
+  }
+  cleanups.push(() => { if (raysUrl) URL.revokeObjectURL(raysUrl); });
+
+  /* ---------- hero glass: a blurred copy of the hero image under the card ----------
+     Each card gets a small image of exactly what sits behind it (the artwork plus Harbor's two shading gradients),
+     blurred, saturated and, in Full mode, refracted at the edges, drawn once into a canvas. The card shows that
+     image with no CSS filter, so tilting and scrolling only move a texture. Artwork that can't be read into a
+     canvas (no CORS headers) falls back to the same layers filtered by CSS. */
   let heroSig = "";
   const lastBd = new WeakMap();
+  const bakeUrls = new Set();
+  const imgCache = new Map();
+  const CANVAS_FILTER = (() => { try { const c = el("canvas").getContext("2d"); c.filter = "blur(2px)"; return c.filter === "blur(2px)"; } catch (e) { return false; } })();
+  function loadImage(src) {
+    if (imgCache.has(src)) return imgCache.get(src);
+    const p = new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous"; img.decoding = "async";
+      img.onload = () => resolve(img); img.onerror = () => resolve(null);
+      img.src = src;
+    });
+    if (imgCache.size > 24) imgCache.clear();
+    imgCache.set(src, p);
+    return p;
+  }
   function clearHero() {
     doc.querySelectorAll('[data-scroll-anchor="hero"] .max-w-2xl[data-fx-bd]').forEach((c) => {
-      c.removeAttribute("data-fx-bd"); c.removeAttribute("data-fx-lens-ready");
-      ["--fx-bd", "--fx-pad", "--fx-bd-o", "--fx-scrim"].forEach((p) => c.style.removeProperty(p));
+      c.removeAttribute("data-fx-bd"); c.removeAttribute("data-fx-bd-url");
+      ["--fx-bd", "--fx-bd-img", "--fx-pad", "--fx-bd-o", "--fx-scrim"].forEach((p) => c.style.removeProperty(p));
     });
+    bakeUrls.forEach((u) => URL.revokeObjectURL(u)); bakeUrls.clear();
   }
   function offsetWithin(node, ancestor) {
     let x = 0, y = 0, n = node;
     while (n && n !== ancestor) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
     return n === ancestor ? [x, y] : null;
+  }
+  // Edge refraction applied to pixels: near the rim, each pixel reads from further inside the card.
+  function refractPixels(ctx, W, H, pad, r, edge, strength) {
+    const src = ctx.getImageData(0, 0, W, H), out = ctx.createImageData(W, H), s = src.data, d = out.data;
+    const hw = W / 2 - pad, hh = H / 2 - pad, R = Math.min(r, hw, hh);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const X = x + 0.5 - W / 2, Y = y + 0.5 - H / 2, qx = Math.abs(X) - (hw - R), qy = Math.abs(Y) - (hh - R);
+      let dist, nx, ny;
+      if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy) || 1; dist = R - l; nx = (qx / l) * Math.sign(X); ny = (qy / l) * Math.sign(Y); }
+      else if (qx > qy) { dist = R - qx; nx = Math.sign(X); ny = 0; }
+      else { dist = R - qy; nx = 0; ny = Math.sign(Y); }
+      const t = clamp(1 - dist / edge, 0, 1), m = t * t * (3 - 2 * t) * strength;
+      const sx = clamp(Math.round(x - nx * m), 0, W - 1), sy = clamp(Math.round(y - ny * m), 0, H - 1);
+      const i = (y * W + x) * 4, j = (sy * W + sx) * 4;
+      d[i] = s[j]; d[i + 1] = s[j + 1]; d[i + 2] = s[j + 2]; d[i + 3] = 255;
+    }
+    ctx.putImageData(out, 0, 0);
+  }
+  // Returns true when the card now shows a baked image, false when it can't (CORS), null when superseded.
+  async function bakeCard(card, job) {
+    const { src, pad, box, img, shade, imgAlpha, rtl, sec, key } = job;
+    const image = await loadImage(src);
+    if (disposed || !card.isConnected || lastBd.get(card) !== key) return null;
+    if (!image) return false;
+    const W = Math.ceil(box.w + pad * 2), H = Math.ceil(box.h + pad * 2);
+    const canvasColor = getComputedStyle(card).getPropertyValue("--color-canvas").trim() || "#070b12";
+    const layer = () => { const c = el("canvas"); c.width = W; c.height = H; const x = c.getContext("2d"); x.translate(pad - box.x, pad - box.y); return [c, x]; };
+    // 1. What sits behind the card, drawn in the hero section's coordinates.
+    const [a, ax] = layer();
+    ax.fillStyle = canvasColor; ax.fillRect(box.x - pad, box.y - pad, W, H);
+    ax.drawImage(image, img.x, img.y, img.w, img.h);
+    if (imgAlpha < 1) { ax.globalAlpha = 1 - imgAlpha; ax.fillRect(img.x, img.y, img.w, img.h); ax.globalAlpha = 1; }
+    // Harbor's shades: canvas color faded by a gradient, left to right (to-r) and bottom up (to-t).
+    const shadeLayer = (x0, y0, x1, y1, stops, rx, ry, rw, rh, alpha) => {
+      const [t, tx] = layer();
+      tx.fillStyle = canvasColor; tx.fillRect(rx, ry, rw, rh);
+      const g = tx.createLinearGradient(x0, y0, x1, y1);
+      stops.forEach(([o, v]) => g.addColorStop(o, `rgba(0,0,0,${v})`));
+      tx.globalCompositeOperation = "destination-in"; tx.fillStyle = g; tx.fillRect(rx, ry, rw, rh);
+      ax.save(); ax.setTransform(1, 0, 0, 1, 0, 0); ax.globalAlpha = alpha; ax.drawImage(t, 0, 0); ax.restore();
+    };
+    shadeLayer(rtl ? sec.w : 0, 0, rtl ? 0 : sec.w, 0, [[0, 1], [0.5, 0.85], [1, 0]], 0, 0, sec.w, sec.h, shade);
+    shadeLayer(0, sec.h, 0, sec.h * 0.6, [[0, 1], [0.5, 0.7], [1, 0]], 0, sec.h * 0.6, sec.w, sec.h * 0.4, 1);
+    // 2. Blur, saturate and brighten in one pass, like the glass does.
+    const b = el("canvas"); b.width = W; b.height = H;
+    const bx = b.getContext("2d", { willReadFrequently: true });
+    bx.filter = `blur(${state.blur}px) saturate(${state.sat}%) brightness(1.04)`;
+    bx.drawImage(a, 0, 0);
+    bx.filter = "none";
+    // 3. Refraction at the card's edges (Full mode only, like the chrome). Reading pixels also proves CORS is fine.
+    try {
+      if (lensOn()) refractPixels(bx, W, H, pad, 24, 30, (8 + 44 * state.refractAmt) / 2);
+      else bx.getImageData(0, 0, 1, 1);
+    } catch (e) { return false; }
+    const blob = await new Promise((res) => { try { b.toBlob(res, "image/webp", 0.88); } catch (e) { res(null); } });
+    if (disposed || !card.isConnected || lastBd.get(card) !== key) return null;
+    if (!blob) return false;
+    const url = URL.createObjectURL(blob);
+    bakeUrls.add(url);
+    // Decode before showing, so the swap from the CSS copy is seamless.
+    const probe = new Image(); probe.src = url;
+    try { await probe.decode(); } catch (e) { /* show anyway */ }
+    if (disposed || !card.isConnected || lastBd.get(card) !== key) { URL.revokeObjectURL(url); bakeUrls.delete(url); return null; }
+    const old = card.getAttribute("data-fx-bd-url");
+    card.style.setProperty("--fx-bd-img", `url("${url}")`);
+    card.setAttribute("data-fx-bd-url", url);
+    card.setAttribute("data-fx-bd", "img");
+    if (old && old !== url) later(1500, () => { URL.revokeObjectURL(old); bakeUrls.delete(old); });
+    return true;
   }
   function syncHero() {
     const hero = visibleHero();
@@ -492,7 +663,7 @@
     cards.forEach((card) => {
       const section = card.closest(".group");
       const img = section && section.querySelector("img.object-cover");
-      if (!img || !img.currentSrc || !img.naturalWidth || !section.offsetWidth) { card.removeAttribute("data-fx-bd"); return; }
+      if (!img || !img.currentSrc || !img.naturalWidth || !section.offsetWidth) { card.removeAttribute("data-fx-bd"); lastBd.delete(card); return; }
       const cp = offsetWithin(card, section);
       if (!cp) return;
       const sw = section.offsetWidth, sh = section.offsetHeight;
@@ -503,24 +674,30 @@
       const grad = section.querySelector(".bg-gradient-to-r");
       const shade = grad ? clamp(parseFloat(getComputedStyle(grad).opacity) || 0, 0, 1) : 1;
       const imgAlpha = clamp(parseFloat(img.style.opacity) || 1, 0, 1) || 1;
-      const dir = getComputedStyle(section).direction === "rtl" ? "to left" : "to right";
+      const rtl = getComputedStyle(section).direction === "rtl";
       const C = "var(--color-canvas)", mix = (p) => `color-mix(in srgb, ${C} ${Math.round(p * 100)}%, transparent)`;
       const px = (v) => v.toFixed(1) + "px";
       const src = img.currentSrc.replace(/["\\\n\r]/g, "");
+      // CSS version of the same picture: shown until the baked image is ready, and when it can't be made.
       const bd = [
         `linear-gradient(to top, ${C}, ${mix(0.7)} 50%, transparent) ${px(ox)} ${px(oy + sh * 0.6)} / ${px(sw)} ${px(sh * 0.4)} no-repeat`,
-        `linear-gradient(${dir}, ${mix(shade)}, ${mix(0.85 * shade)} 50%, transparent) ${px(ox)} ${px(oy)} / ${px(sw)} ${px(sh)} no-repeat`,
+        `linear-gradient(${rtl ? "to left" : "to right"}, ${mix(shade)}, ${mix(0.85 * shade)} 50%, transparent) ${px(ox)} ${px(oy)} / ${px(sw)} ${px(sh)} no-repeat`,
         `linear-gradient(${mix(1 - imgAlpha)}, ${mix(1 - imgAlpha)}) ${px(ox + dx)} ${px(oy + dy)} / ${px(dw)} ${px(dh)} no-repeat`,
         `url("${src}") ${px(ox + dx)} ${px(oy + dy)} / ${px(dw)} ${px(dh)} no-repeat ${C}`,
       ].join(", ");
       const origin = `${px(ox + bx + bw / 2)} ${px(oy + by + bh / 2)}`;
+      const key = bd + origin + [state.blur, state.sat, lensOn() ? state.refractAmt : "-", effHue().toFixed(0), state.chroma].join("|");
       sig += bd.length + src;
-      if (lastBd.get(card) !== bd + origin) {
+      if (lastBd.get(card) !== key) {
+        lastBd.set(card, key);
         card.style.setProperty("--fx-pad", pad + "px");
         card.style.setProperty("--fx-bd", bd);
         card.style.setProperty("--fx-bd-o", origin);
-        card.setAttribute("data-fx-bd", "");
-        lastBd.set(card, bd + origin);
+        if (card.getAttribute("data-fx-bd") !== "img") card.setAttribute("data-fx-bd", "css");
+        const job = { src: img.currentSrc, pad, box: { x: cp[0], y: cp[1], w: card.offsetWidth, h: card.offsetHeight }, img: { x: dx, y: dy, w: dw, h: dh }, shade, imgAlpha, rtl, sec: { w: sw, h: sh }, key };
+        const fallback = () => { if (lastBd.get(card) === key) card.setAttribute("data-fx-bd", "css"); };
+        if (CANVAS_FILTER && perfLevel() !== "lite") idle(() => bakeCard(card, job).then((ok) => { if (ok === false) fallback(); }, fallback));
+        else fallback();
       }
       jobs.push([card, img.currentSrc, [dx, dy, dw, dh], [cp[0], cp[1], card.offsetWidth, card.offsetHeight], sw, shade]);
     });
@@ -554,10 +731,13 @@
     `<button type="button" class="fx-nb ${cls}" data-harbor-nav="${n.id}" data-fx-go="${n.id}" aria-label="${esc(n.label)}"${extra || ""}${current === n.id ? " data-active" : ""}>${inner}</button>`;
   const actBtn = (cls, act, label, inner) => `<button type="button" class="${cls}" data-fx-act="${act}" aria-label="${label}"${act === "panel" ? ' aria-keyshortcuts="Alt+T"' : ""}>${inner}</button>`;
 
+  // Customize is always on screen, labeled, in whichever navigation style is active (and in the menu bar too).
+  const CUSTOMIZE = "Customize";
   function renderChrome() {
     const s = state, items = navList().filter((n) => n.visible);
     const pages = items.filter((n) => n.id !== "settings"), tail = items.filter((n) => n.id === "settings");
-    const utils = !menubarOn(); // with a menu bar, search and Customize live up there only
+    const search = !menubarOn(); // with a menu bar, search lives up there
+    const custText = icon("tune") + `<span>${CUSTOMIZE}</span>`;
     let html = "";
     if (menubarOn()) {
       const middle = s.chrome === "menubar"
@@ -567,36 +747,38 @@
         `<span class="fx-brand" data-tauri-drag-region>${icon("mark")}Harbor</span>${middle}` +
         `<span class="fx-right">` + actBtn("fx-ib", "search", "Search", icon("search")) +
         (s.clock ? '<span class="fx-clock" data-fx-clock></span>' : "") +
-        actBtn("fx-ib", "panel", "Customize Fathom", icon("tune")) + `</span></header>`;
+        actBtn("fx-ib fx-cust", "panel", "Customize Fathom", custText) + `</span></header>`;
     }
     const tip = (t) => `<span class="fx-tip" aria-hidden="true">${esc(t)}</span>`;
     if (s.chrome === "dock") {
       html += `<nav id="fx-dock" class="fx-glass" aria-label="Pages">` +
         pages.map((n) => navBtn(n, "fx-di", icon(n.id) + tip(n.label))).join("") +
-        (tail.length || utils ? `<span class="fx-sep" aria-hidden="true"></span>` : "") +
-        (utils ? actBtn("fx-nb fx-di", "search", "Search", icon("search") + tip("Search")) : "") +
+        `<span class="fx-sep" aria-hidden="true"></span>` +
+        (search ? actBtn("fx-nb fx-di", "search", "Search", icon("search") + tip("Search")) : "") +
         tail.map((n) => navBtn(n, "fx-di", icon(n.id) + tip(n.label))).join("") +
-        (utils ? actBtn("fx-nb fx-di", "panel", "Customize Fathom", icon("tune") + tip("Customize")) : "") + `</nav>`;
+        actBtn("fx-nb fx-di fx-cust", "panel", "Customize Fathom", icon("tune") + tip(CUSTOMIZE)) + `</nav>`;
     } else if (s.chrome === "sidebar") {
-      const t = (n) => (s.sidebarCompact ? ` title="${esc(n.label)}"` : "");
+      const t = (label) => (s.sidebarCompact ? ` title="${esc(label)}"` : "");
       html += `<nav id="fx-sidebar" class="fx-glass" aria-label="Pages">` +
-        pages.map((n) => navBtn(n, "fx-si", icon(n.id) + `<span>${esc(n.label)}</span>`, t(n))).join("") +
+        pages.map((n) => navBtn(n, "fx-si", icon(n.id) + `<span>${esc(n.label)}</span>`, t(n.label))).join("") +
         `<div class="fx-grow"></div>` +
-        (utils ? actBtn("fx-nb fx-si", "search", "Search", icon("search") + "<span>Search</span>") : "") +
-        tail.map((n) => navBtn(n, "fx-si", icon(n.id) + `<span>${esc(n.label)}</span>`, t(n))).join("") +
-        (utils ? actBtn("fx-nb fx-si", "panel", "Customize Fathom", icon("tune") + "<span>Customize</span>") : "") + `</nav>`;
+        (search ? actBtn("fx-nb fx-si", "search", "Search", icon("search") + "<span>Search</span>") : "") +
+        tail.map((n) => navBtn(n, "fx-si", icon(n.id) + `<span>${esc(n.label)}</span>`, t(n.label))).join("") +
+        actBtn("fx-nb fx-si fx-cust", "panel", "Customize Fathom", custText).replace("<button ", `<button${t(CUSTOMIZE)} `) + `</nav>`;
     } else if (s.chrome === "island") {
       html += `<nav id="fx-island" class="fx-glass" aria-label="Pages" data-tauri-drag-region>` +
         pages.map((n) => navBtn(n, "fx-ii", icon(n.id) + `<span>${esc(n.label)}</span>`)).join("") +
         actBtn("fx-nb fx-ii fx-iconly", "search", "Search", icon("search")) +
         tail.map((n) => navBtn(n, "fx-ii fx-iconly", icon(n.id))).join("") +
-        actBtn("fx-nb fx-ii fx-iconly", "panel", "Customize Fathom", icon("tune")) +
-        (s.clock ? '<span class="fx-clock" data-fx-clock></span>' : "") + `</nav>`;
+        (s.clock ? '<span class="fx-clock" data-fx-clock></span>' : "") +
+        actBtn("fx-nb fx-ii fx-cust", "panel", "Customize Fathom", custText) + `</nav>`;
     }
     chrome.innerHTML = html;
     tickClock();
     if (ro) { ro.disconnect(); chrome.querySelectorAll(".fx-glass").forEach((n) => ro.observe(n)); }
-    lensBuilt.clear();
+    measureSidebar();
+    scheduleLenses();
+    if (prompt) placePrompt();
   }
   function markActive() {
     chrome.querySelectorAll("[data-harbor-nav]").forEach((b) => b.toggleAttribute("data-active", b.getAttribute("data-harbor-nav") === current));
@@ -638,7 +820,7 @@
     if (!box || box !== from.parentElement || !motionOn()) return;
     const br = box.getBoundingClientRect(), a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
     if (!a.width || !b.width) return;
-    const inset = 3, bw = b.width - inset * 2, bh = b.height - inset * 2;
+    const inset = parseFloat(getComputedStyle(to).getPropertyValue("--fx-pill-inset")) || 0, bw = b.width - inset * 2, bh = b.height - inset * 2;
     const blob = el("span", { class: "fx-morph", "aria-hidden": "true" });
     blob.style.cssText = `left:${b.left - br.left + inset - box.clientLeft}px;top:${b.top - br.top + inset - box.clientTop}px;width:${bw}px;height:${bh}px;border-radius:${getComputedStyle(to).borderRadius}`;
     const dx = a.left - b.left, dy = a.top - b.top, sx = (a.width - inset * 2) / bw, sy = (a.height - inset * 2) / bh;
@@ -669,20 +851,40 @@
   navObserver.observe(chrome, { subtree: true, attributes: true, attributeFilter: ["data-active"], attributeOldValue: true });
   cleanups.push(() => navObserver.disconnect());
 
-  // dock magnification: read every icon's position first, then write sizes (one layout per frame)
-  let magRaf = 0, magX = 0, magY = 0;
-  function resetMag() { chrome.querySelectorAll("#fx-dock .fx-di").forEach((d) => d.style.removeProperty("--s")); if (magnifying) { magnifying = false; scheduleLenses(); } }
+  // Dock magnification: read every icon's position first, then write sizes (one layout per frame).
+  // Positions are measured at rest size, so the curve doesn't feed back on itself while icons grow.
+  let magRaf = 0, magX = 0, magY = 0, magRest = null, magEndTimer = 0;
+  function resetMag() {
+    chrome.querySelectorAll("#fx-dock .fx-di").forEach((d) => d.style.removeProperty("--s"));
+    if (magnifying) {
+      clearTimeout(magEndTimer);
+      // Let the icons ease back to rest size before the lens comes back.
+      magEndTimer = setTimeout(() => { magnifying = false; magRest = null; scheduleLenses(0); }, 260);
+    }
+  }
   listen(chrome, "pointermove", (e) => {
     if (!e.target.closest || !e.target.closest("#fx-dock") || !state.magnify || !motionOn()) return;
-    magX = e.clientX; magY = e.clientY; magnifying = true;
+    magX = e.clientX; magY = e.clientY;
+    clearTimeout(magEndTimer);
+    if (!magnifying) { magnifying = true; quietLenses(); }
     if (magRaf) return;
     magRaf = requestAnimationFrame(() => {
       magRaf = 0;
       const vertical = state.dockPos === "left", reach = state.dockSize * 2.6;
       const items = [...chrome.querySelectorAll("#fx-dock .fx-di")];
-      const centers = items.map((d) => { const r = d.getBoundingClientRect(); return vertical ? r.top + r.height / 2 : r.left + r.width / 2; });
+      if (!magRest || magRest.length !== items.length) {
+        // centers along the dock at rest, relative to the dock's start edge
+        const dock = chrome.querySelector("#fx-dock"), dr = dock.getBoundingClientRect();
+        let pos = vertical ? dr.top : dr.left;
+        magRest = { start: pos, centers: items.map((d) => { const r = d.getBoundingClientRect(), c = (vertical ? r.top + r.height / 2 : r.left + r.width / 2) - pos; return c; }), length: items.length };
+      }
+      const dock = chrome.querySelector("#fx-dock"), dr = dock.getBoundingClientRect();
+      // The dock grows symmetrically around its center, so map the pointer back into rest coordinates.
+      const restLen = magRest.centers.length ? magRest.centers[magRest.centers.length - 1] + magRest.centers[0] : 0;
+      const nowLen = vertical ? dr.height : dr.width, mid = (vertical ? dr.top : dr.left) + nowLen / 2;
+      const p = (vertical ? magY : magX) - mid + restLen / 2;
       items.forEach((d, i) => {
-        const dist = Math.abs((vertical ? magY : magX) - centers[i]);
+        const dist = Math.abs(p - magRest.centers[i]);
         d.style.setProperty("--s", (1 + state.magnifyAmt * Math.max(0, 1 - dist / reach)).toFixed(3));
       });
     });
@@ -691,13 +893,20 @@
     const dock = chrome.querySelector("#fx-dock");
     if (dock && !dock.contains(e.relatedTarget)) resetMag();
   });
+  cleanups.push(() => clearTimeout(magEndTimer));
   const reveal = (on) => { if (on) root.setAttribute("data-fx-reveal", ""); else root.removeAttribute("data-fx-reveal"); };
   listen(chrome, "focusin", () => reveal(true));
   listen(chrome, "focusout", () => reveal(false));
 
   /* ---------- pointer: hero depth, poster tilt, light, rim highlight ---------- */
   let ptRaf = 0, lastEv = null, tilted = null, hoverCard = null, hoverTimer = 0, restoreTimer = 0, scrollTimer = 0;
-  let heroMoved = null, lastLg = 999, lastLgAt = 0;
+  let heroMoved = null, lastLg = 999, lastLgAt = 0, focusRow = null;
+  function setFocusRow(row) {
+    if (focusRow) focusRow.removeAttribute("data-fx-row");
+    focusRow = row;
+    if (row) { row.setAttribute("data-fx-row", ""); root.setAttribute("data-fx-rowfocus", ""); }
+    else root.removeAttribute("data-fx-rowfocus");
+  }
   const paused = () => doc.hidden || root.hasAttribute("data-chrome-hidden") || (state.pauseOnScroll && root.hasAttribute("data-fx-scrolling"));
   function resetTilt() { if (tilted) { tilted.style.removeProperty("transform"); tilted = null; } }
   // The banner tilts as one piece; inside it the active image shifts, and that slide's card moves its glass copy
@@ -743,15 +952,24 @@
     const hr = hero ? hero.getBoundingClientRect() : null;
     // Writes.
     if (state.chrome === "dock" && state.dockAutohide) reveal(state.dockPos === "left" ? x < 80 : y > H - 80);
-    if (lightOn()) { light.style.transform = `translate3d(${x - 450}px, ${y - 450}px, 0)`; light.style.opacity = "1"; }
-    // Rim light faces the pointer. Updated at most ~12 times a second and only on a real change of angle,
+    // The light lives under the chrome, so over the dock it would show as a blurred blob behind the icon (and make
+    // the glass re-blur a moving light). It fades out while the pointer is on Fathom's own glass.
+    const onGlass = !!(e.target && e.target.closest && e.target.closest("#fathom-chrome, #fathom-panel, #fathom-prompt"));
+    if (lightOn()) {
+      if (!onGlass) light.style.transform = `translate3d(${x - 360}px, ${y - 360}px, 0)`;
+      light.style.opacity = onGlass ? "0" : "1";
+    }
+    // Rim light faces the pointer. Updated at most 5 times a second and only when the angle really moves,
     // because each update repaints the rims of the glass chrome.
     const now = performance.now();
-    if (now - lastLgAt > 80) {
+    if (now - lastLgAt > 200) {
       const lg = Math.round((Math.atan2(y - H / 2, x - W / 2) * 180) / Math.PI + 270) % 360; // gradient runs away from the light
       const diff = Math.abs(((lg - lastLg + 540) % 360) - 180);
-      if (diff > 6) { chrome.style.setProperty("--fx-lg", lg + "deg"); lastLg = lg; lastLgAt = now; }
+      if (diff > 12) { chrome.style.setProperty("--fx-lg", lg + "deg"); lastLg = lg; lastLgAt = now; }
     }
+    // Dim the other rows: mark the row under the pointer, only when it changes.
+    const row = state.focusRow && e.target && e.target.closest ? e.target.closest('main [class~="group/row"]') : null;
+    if (row !== focusRow) setFocusRow(row);
     if (hero && hr) {
       const inside = x >= hr.left - 40 && x <= hr.right + 40 && y >= hr.top - 40 && y <= hr.bottom + 40;
       if (inside) moveHero(hero, clamp(((x - hr.left) / hr.width) * 2 - 1, -1, 1), clamp(((y - hr.top) / hr.height) * 2 - 1, -1, 1));
@@ -760,8 +978,10 @@
     if (card !== tilted) resetTilt();
     if (card && cr) {
       const px = clamp((x - cr.left) / cr.width, 0, 1), py = clamp((y - cr.top) / cr.height, 0, 1);
-      card.style.setProperty("--fx-mx", (px * 100).toFixed(1) + "%");
-      card.style.setProperty("--fx-my", (py * 100).toFixed(1) + "%");
+      if (state.sheen) {
+        card.style.setProperty("--fx-mx", (px * 100).toFixed(1) + "%");
+        card.style.setProperty("--fx-my", (py * 100).toFixed(1) + "%");
+      }
       if (state.hover === "tilt" && depthOn() && state.tilt > 0) {
         const t = state.tilt;
         card.style.transform = `perspective(700px) rotateX(${((0.5 - py) * t).toFixed(2)}deg) rotateY(${((px - 0.5) * t).toFixed(2)}deg) translateZ(${(14 * state.depth).toFixed(1)}px) scale(1.04)`;
@@ -792,19 +1012,23 @@
   }
   cleanups.push(() => { clearTimeout(hoverTimer); clearTimeout(restoreTimer); clearTimeout(scrollTimer); cancelAnimationFrame(ptRaf); cancelAnimationFrame(magRaf); });
   listen(win, "pointermove", (e) => { lastEv = e; noteActivity(); if (!ptRaf) ptRaf = requestAnimationFrame(frame); }, { passive: true });
-  listen(root, "pointerleave", () => { resetTilt(); resetHero(); onHoverCard(null); light.style.opacity = "0"; });
+  listen(root, "pointerleave", () => { resetTilt(); resetHero(); onHoverCard(null); setFocusRow(null); light.style.opacity = "0"; });
+  // Scrolling: one attribute write when a scroll starts and one when it ends, nothing per scroll event.
+  let scrolling = false;
   listen(doc, "scroll", () => {
-    resetTilt();
     noteActivity();
-    if (!state.pauseOnScroll) return;
-    if (!root.hasAttribute("data-fx-scrolling")) root.setAttribute("data-fx-scrolling", "");
+    if (!scrolling) {
+      scrolling = true;
+      resetTilt();
+      if (state.pauseOnScroll) { root.setAttribute("data-fx-scrolling", ""); quietLenses(); }
+    }
     clearTimeout(scrollTimer);
-    scrollTimer = setTimeout(() => root.removeAttribute("data-fx-scrolling"), 160);
+    scrollTimer = setTimeout(() => { scrolling = false; root.removeAttribute("data-fx-scrolling"); scheduleLenses(0); }, 200);
   }, { capture: true, passive: true });
 
   /* ---------- performance: measured while you actually scroll or move the pointer ---------- */
   const perfStats = { frames: [], streak: 0, fps: 0, drop: -1 };
-  let sampRaf = 0, sampLast = 0, sampUntil = 0;
+  let sampRaf = 0, sampLast = 0, sampUntil = 0, autoChangedAt = -1e9, autoDroppedAt = -1e9;
   function sampleTick(t) {
     if (sampLast) { const d = t - sampLast; if (d < 250) perfStats.frames.push(d); }
     sampLast = t;
@@ -822,17 +1046,24 @@
     const median = d[Math.floor(d.length / 2)] || vsync;
     perfStats.fps = Math.round(1000 / median);
     perfStats.drop = d.filter((v) => v > vsync * 1.9).length / d.length;
-    if (state.perf === "auto" && !root.hasAttribute("data-chrome-hidden")) {
+    // Auto, with hysteresis so it can't flip back and forth: readings right after a change are ignored (the page
+    // is still repainting), stepping down takes two slow readings in a row, and stepping up takes four smooth ones
+    // and, after any step down, two quiet minutes.
+    const now = performance.now();
+    if (state.perf === "auto" && !root.hasAttribute("data-chrome-hidden") && now - autoChangedAt > 3000) {
       const before = autoLevel;
       perfStats.streak = perfStats.drop > 0.12 ? perfStats.streak + 1 : 0;
       perfStats.smooth = perfStats.drop < 0.02 ? (perfStats.smooth || 0) + 1 : 0;
+      const mayRise = now - autoDroppedAt > 120000;
       if (perfStats.streak >= 2 && autoLevel !== "lite") {
         if (autoLevel === "full") { fullFailed = true; store.set(FULL_FAILED_KEY, "1"); }
         autoLevel = autoLevel === "full" ? "balanced" : "lite";
-      } else if (perfStats.smooth >= 3 && (autoLevel === "lite" || (autoLevel === "balanced" && !fullFailed))) {
+        autoDroppedAt = now;
+      } else if (mayRise && perfStats.smooth >= 4 && (autoLevel === "lite" || (autoLevel === "balanced" && !fullFailed))) {
         autoLevel = autoLevel === "lite" ? "balanced" : "full";
       }
       if (autoLevel !== before) {
+        autoChangedAt = now;
         perfStats.streak = 0; perfStats.smooth = 0;
         store.set(AUTO_KEY, autoLevel);
         apply();
@@ -929,10 +1160,11 @@
           C.range("dockSize", "Icon size", 36, 64, 1, "px") + C.toggle("magnify", "Magnify icons under the pointer") +
           (s.magnify ? C.range("magnifyAmt", "Magnify amount", 0.1, 1, 0.01, "pct") : "") +
           C.toggle("dockAutohide", "Hide the dock until you point at it") + C.toggle("dockLabels", "Show names on hover") : "") +
-        (s.chrome === "sidebar" ? C.toggle("sidebarCompact", "Icons only") + (s.sidebarCompact ? "" : C.range("sidebarW", "Width", 180, 300, 2, "px")) : "") +
+        (s.chrome === "sidebar" ? C.toggle("sidebarCompact", "Icons only") +
+          (s.sidebarCompact ? "" : C.toggle("sidebarFit", "Fit to the page names", "Off lets you set the width") + (s.sidebarFit ? "" : C.range("sidebarW", "Width", 140, 300, 2, "px"))) : "") +
         (s.chrome === "island" ? `<p class="fx-hint">The island replaces the menu bar and floats at the top.</p>` : "") +
         C.h("Menu bar") +
-        (s.chrome === "island" ? "" : s.chrome === "menubar" ? `<p class="fx-hint">Your pages live in the menu bar.</p>` : C.toggle("menubar", "Show the menu bar", "Holds search, the clock and Customize, and lets you drag the window")) +
+        (s.chrome === "island" ? "" : s.chrome === "menubar" ? `<p class="fx-hint">Your pages live in the menu bar.</p>` : C.toggle("menubar", "Show the menu bar", "Holds search and the clock, and lets you drag the window")) +
         C.toggle("clock", "Clock") + (s.clock ? C.toggle("date", "Date") + C.toggle("clock24", "24-hour time") : "") +
         C.h("Pages") +
         C.seg("navSource", "", [["harbor", "Match Harbor"], ["fathom", "Fathom's own list"]]) +
@@ -976,10 +1208,10 @@
     },
     Speed() {
       const s = state, lvl = perfLevel();
-      const notes = { full: "Every effect, including refraction.", balanced: "Lighter blur, no refraction or light rays.", lite: "No blur, tilt, refraction or moving light. Glass becomes solid tinted panels." };
+      const notes = { full: "Every effect, including refraction and light rays.", balanced: "The default. Lighter blur, no refraction or light rays.", lite: "No blur, tilt, refraction or moving light. Glass becomes solid tinted panels." };
       return C.h("Performance") +
         C.seg("perf", "", [["auto", "Auto"], ["full", "Full"], ["balanced", "Balanced"], ["lite", "Lite"]]) +
-        `<p class="fx-hint">${s.perf === "auto" ? `Auto measures frames while you scroll and move the pointer. It starts at Balanced, moves up to Full when things stay smooth, and steps down if Harbor stutters. Right now: ${lvl}. ` : ""}${notes[lvl]}</p>` +
+        `<p class="fx-hint">${s.perf === "auto" ? `Auto measures frames while you scroll and move the pointer. It starts at Balanced, moves up to Full after a run of smooth readings, and steps down if Harbor stutters. Right now: ${lvl}. ` : ""}${notes[lvl]}</p>` +
         `<div class="fx-stat"><span>While browsing</span><b data-fx-fps>${statText()}</b></div>` +
         (s.perf === "auto" && autoLevel !== "full" ? `<div class="fx-btns"><button type="button" class="fx-btn" data-fx-do="reset-auto">Try full quality again</button></div>` : "") +
         C.toggle("pauseOnScroll", "Pause effects while scrolling", "Keeps long rows smooth");
@@ -1019,6 +1251,7 @@
     renderBody();
   }
   function openPanel(from) {
+    if (prompt) closePrompt(false); // found it: the first-run card has done its job
     opener = from || doc.activeElement;
     panel.hidden = false;
     renderBody();
@@ -1145,22 +1378,46 @@
     togglePanel();
   });
 
-  /* ---------- first-run hint ---------- */
-  let toast = null;
-  function showToast() {
-    toast = el("div", { id: "fathom-toast", class: "fx-glass", role: "status" });
-    toast.innerHTML = `<span>Fathom is on. Press <kbd>Alt</kbd> <kbd>T</kbd> to make it yours.</span><button type="button" data-t="open">Customize</button><button type="button" data-t="close">Got it</button>`;
-    doc.body.append(toast);
-    const dismiss = () => { store.set(SEEN_KEY, "1"); if (toast) { toast.remove(); toast = null; } };
-    toast.addEventListener("click", (e) => {
-      const b = e.target.closest("button");
-      if (!b) return;
-      if (b.dataset.t === "open") openPanel();
-      dismiss();
-    });
-    later(14000, dismiss);
+  /* ---------- first run: ask once whether to customize ----------
+     A glass card next to the Customize button. It stays until answered (no timer), and is shown once per install:
+     after either answer it never comes back. It hides with the chrome (Settings page, player). */
+  const PROMPT_KEY = "fathom.prompted.v1";
+  let prompt = null;
+  const navCust = () => chrome.querySelector("#fx-dock .fx-cust, #fx-sidebar .fx-cust, #fx-island .fx-cust") || chrome.querySelector(".fx-cust");
+  function placePrompt() {
+    if (!prompt) return;
+    // Point at the Customize button in the main navigation (dock, sidebar, island); the menu bar's is the fallback.
+    const btn = navCust();
+    const W = win.innerWidth, H = win.innerHeight, pw = prompt.offsetWidth, ph = prompt.offsetHeight, gap = 12, m = 16;
+    let x = (W - pw) / 2, y = H - ph - 96;
+    if (btn && btn.getClientRects().length) {
+      const r = btn.getBoundingClientRect(), cx = r.left + r.width / 2;
+      if (state.chrome === "dock" && state.dockPos === "left") { x = r.right + gap + 12; y = r.top + r.height / 2 - ph / 2; }
+      else if (state.chrome === "sidebar") { x = r.right + gap + 8; y = r.bottom - ph; }
+      else if (r.top > H / 2) { x = cx - pw / 2; y = r.top - ph - gap - 8; } // dock at the bottom: above it
+      else { x = Math.min(cx - pw / 2, r.right - pw); y = r.bottom + gap; } // menu bar or island: below
+    }
+    prompt.style.left = Math.round(clamp(x, m, W - pw - m)) + "px";
+    prompt.style.top = Math.round(clamp(y, m, H - ph - m)) + "px";
   }
-  if (!store.get(SEEN_KEY)) later(1200, showToast);
+  function closePrompt(open) {
+    store.set(PROMPT_KEY, "1");
+    store.set(SEEN_KEY, "1");
+    if (prompt) { prompt.remove(); prompt = null; }
+    if (open) openPanel(navCust());
+  }
+  function showPrompt() {
+    if (prompt || store.get(PROMPT_KEY)) return;
+    prompt = el("section", { id: "fathom-prompt", class: "fx-glass", role: "dialog", "aria-labelledby": "fx-prompt-title" });
+    prompt.innerHTML = `<h2 id="fx-prompt-title">Fathom is on</h2>` +
+      `<p>Choose a look, colors and how you get around. Customize is always in your ${state.chrome === "dock" ? "dock" : state.chrome === "sidebar" ? "sidebar" : state.chrome === "island" ? "island" : "menu bar"}, or press <kbd>Alt</kbd> <kbd>T</kbd>.</p>` +
+      `<div class="fx-btns"><button type="button" class="fx-btn fx-primary" data-p="open">Customize Fathom</button><button type="button" class="fx-btn" data-p="later">Later</button></div>`;
+    prompt.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) closePrompt(b.dataset.p === "open"); });
+    doc.body.append(prompt);
+    placePrompt();
+  }
+  listen(win, "resize", () => placePrompt());
+  if (!store.get(PROMPT_KEY)) later(900, showPrompt);
 
   /* ---------- start ---------- */
   apply();
@@ -1175,7 +1432,15 @@
   let resizeTimer = 0;
   listen(win, "resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { heroSig = ""; syncHero(); scheduleLenses(); }, 200); });
   cleanups.push(() => clearTimeout(resizeTimer));
-  listen(doc, "visibilitychange", () => { if (doc.hidden) { resetTilt(); resetHero(); } });
+  listen(doc, "visibilitychange", () => { if (doc.hidden) { resetTilt(); resetHero(); } scheduleLenses(0); });
+  // Harbor marks the chrome hidden for the player, the play picker and Settings. When the player opens, close the
+  // panel (CSS already hides every Fathom layer so the video can show through) and stop pointer effects.
+  const chromeObserver = new MutationObserver(() => {
+    if (doc.querySelector("[data-harbor-player]")) { closePanel(); resetTilt(); resetHero(); setFocusRow(null); light.style.opacity = "0"; }
+    scheduleLenses(0);
+  });
+  chromeObserver.observe(root, { attributes: true, attributeFilter: ["data-chrome-hidden"] });
+  cleanups.push(() => chromeObserver.disconnect());
 
   /* ---------- cleanup ---------- */
   function dispose() {
@@ -1185,10 +1450,13 @@
     store.set(KEY, JSON.stringify(state));
     cleanups.splice(0).forEach((f) => { try { f(); } catch (e) { /* keep going */ } });
     resetTilt(); resetHero(); clearHero();
-    [wall, light, chrome, panel, toast, varsStyle, fontLink, filters].forEach((n) => n && n.remove());
+    [wall, light, chrome, panel, prompt, varsStyle, fontLink, filters].forEach((n) => n && n.remove());
     ATTRS.forEach((k) => root.removeAttribute("data-" + k));
     root.removeAttribute("data-fx-reveal");
     root.removeAttribute("data-fx-scrolling");
+    root.removeAttribute("data-fx-rowfocus");
+    if (focusRow) focusRow.removeAttribute("data-fx-row");
+    root.style.removeProperty("--fx-sidebar-w");
     root.style.removeProperty("--fx-art");
     doc.querySelectorAll(".harbor-poster").forEach((c) => ["--fx-card", "--fx-mx", "--fx-my", "transform"].forEach((p) => c.style.removeProperty(p)));
     doc.querySelectorAll('[data-scroll-anchor="hero"]').forEach((h) => h.style.removeProperty("transform"));
