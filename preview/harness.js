@@ -39,7 +39,8 @@
     document.querySelectorAll("#hz-dots button").forEach((b, j) => { b.classList.toggle("on", j === i); b.classList.toggle("bg-ink", j === i); });
   }
   $("#hz-dots").addEventListener("click", (e) => { const b = e.target.closest("[data-slide]"); if (b) setSlide(+b.dataset.slide); });
-  setInterval(() => { if (!document.hidden) setSlide((active + 1) % heroSlides.length); }, 9000);
+  // window.__hzHold (set by perf.js) stops the auto-advance so a slide change never lands inside a measurement.
+  setInterval(() => { if (!document.hidden && !window.__hzHold) setSlide((active + 1) % heroSlides.length); }, 9000);
 
   // rows
   const pick = (i) => `
@@ -92,10 +93,19 @@
     document.querySelectorAll("[data-harbor-nav]").forEach((n) => n.toggleAttribute("data-active", n.getAttribute("data-harbor-nav") === (deep ? "meta" : v)));
     if (v !== "settings" && !deep) window.dispatchEvent(new CustomEvent("harbor:scroll-top", { detail: { view: v } }));
   }
+  // Player (App.tsx 0.9.113): ThemeBackdrop returns null, the views column turns invisible, and on Windows with mpv
+  // embedded the player stage has no background, so the native mpv window behind the transparent webview shows through.
+  // #hz-native stands in for that native video layer. Anything Fathom paints over it is what the user would see instead.
   let playerOn = false;
   function syncChromeHidden() {
     if (playerOn || view === "settings") root.dataset.chromeHidden = "true"; else delete root.dataset.chromeHidden;
-    $("#hz-player").hidden = !playerOn;
+    const mounted = $("#hz-player");
+    if (playerOn && !mounted) document.body.insertBefore($("#hz-player-tpl").content.firstElementChild.cloneNode(true), $("#harbor-custom-overlay"));
+    if (!playerOn && mounted) mounted.remove();
+    $("#hz-native").hidden = !playerOn;
+    $(".hz-backdrop").hidden = playerOn;
+    $(".hz-col").classList.toggle("invisible", playerOn);
+    $("#hz-back").hidden = playerOn || view !== "meta";
   }
   window.harbor = {
     navigate: (v) => showView(v),
@@ -120,6 +130,8 @@
   $("#hz-search").addEventListener("click", (e) => { if (e.target.id === "hz-search") e.currentTarget.hidden = true; });
 
   /* ---------- load the theme like CustomCodeMount ---------- */
+  // ?build=.baseline/fathom.json loads another build (same origin only) for before/after comparisons.
+  const BUILD = (() => { const b = new URLSearchParams(location.search).get("build"); return b && /^[\w./-]+\.json$/.test(b) && !b.includes("..") ? b : "../dist/fathom.json"; })();
   let theme = null;
   function runCleanup() {
     const fn = window.__harborThemeCleanup;
@@ -142,7 +154,7 @@
     $("#harbor-custom-overlay").innerHTML = "";
   }
   async function load() {
-    const r = await fetch("../dist/fathom.json?" + Date.now());
+    const r = await fetch(BUILD + "?" + Date.now());
     theme = await r.json();
     applyTokens(theme.tokens);
     root.style.setProperty("--font-display", '"Sentient", "Iowan Old Style", Georgia, serif');
@@ -168,7 +180,7 @@
     }
     else if (a === "modal") $("#hz-modal").hidden = false;
     else if (a === "close-modal") $("#hz-modal").hidden = true;
-    else if (a === "reload") { unmountTheme(); const r = await fetch("../dist/fathom.json?" + Date.now()); theme = await r.json(); applyTokens(theme.tokens); mountTheme(); status("Reloaded theme from dist."); }
+    else if (a === "reload") { unmountTheme(); const r = await fetch(BUILD + "?" + Date.now()); theme = await r.json(); applyTokens(theme.tokens); mountTheme(); status("Reloaded theme from " + BUILD); }
     else if (a === "unload") { unmountTheme(); const left = [...root.attributes].filter((x) => x.name.startsWith("data-fx")).length + document.querySelectorAll("#fathom-wall,#fathom-chrome,#fathom-panel,#fathom-light,#fathom-vars").length; status(left ? `Unload left ${left} leftovers` : "Unloaded cleanly: nothing left behind."); }
     else if (a === "forget") { Object.keys(localStorage).filter((k) => k.startsWith("fathom.")).forEach((k) => localStorage.removeItem(k)); status("Saved settings cleared. Reload theme to start fresh."); }
   });

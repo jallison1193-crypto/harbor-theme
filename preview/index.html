@@ -81,6 +81,10 @@
   <!-- FloatingBack (custom layout: offsetLeft 20, offsetTop 20) -->
   <button type="button" aria-label="Back" id="hz-back" class="hz-back" style="position: fixed; top: 20px; inset-inline-start: 20px; z-index: 70" hidden>‹ Back</button>
 
+  <!-- Together button proxy (App.tsx 0.9.113, custom layout): aria-hidden, sits in the window-controls corner at z 40.
+       Harbor hides the button inside it (index.css); the frame around it is what showed as a blurred square. -->
+  <div aria-hidden="true" class="harbor-chrome-proxy fixed end-3 top-3 z-[40] hz-proxy"><button type="button" class="harbor-together-btn" tabindex="-1">Together</button></div>
+
   <!-- WindowControls -->
   <div class="fixed end-3 top-3 z-[120] hz-wc" data-tauri-drag-region="false"><i></i><i></i><i></i></div>
 
@@ -98,8 +102,16 @@
     </div>
   </div>
 
-  <!-- Player stand-in -->
-  <div class="hz-player" id="hz-player" data-harbor-player hidden><span>Player (chrome hidden). Press Esc or the bench button to exit.</span></div>
+  <!-- Native video stand-in: on Windows, mpv renders in a native layer behind the transparent webview. -->
+  <div class="hz-native" id="hz-native" aria-hidden="true" hidden><div class="hz-native-frame"></div><span>Native video layer</span></div>
+
+  <!-- Player stand-in (views/player.tsx: fixed inset-0 z-[100], no background while mpv is embedded on Windows).
+       Harbor mounts it only while playing, so the bench does too (from this template). -->
+  <template id="hz-player-tpl">
+    <main class="hz-player" id="hz-player" data-harbor-player dir="ltr">
+      <div class="hz-transport"><span>Player. The striped native video should fill the window. Press Esc or the bench button to exit.</span><i><b></b></i></div>
+    </main>
+  </template>
 
   <!-- Harbor's custom overlay mount -->
   <div id="harbor-custom-overlay" aria-hidden="true" class="hz-overlay"></div>
@@ -124,5 +136,6 @@
   </details>
 
   <script src="harness.js"></script>
+  <script src="perf.js"></script>
 </body>
 </html>
