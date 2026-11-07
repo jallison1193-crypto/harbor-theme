@@ -407,8 +407,8 @@
      strongest at the edge. Built at half resolution on idle, only when a shape's size really changes.
      The lens is never switched on or off abruptly. Its strength (feDisplacementMap scale) fades to zero first, and
      only then does the element drop the lens filter, which at zero strength looks exactly like the plain glass.
-     It fades out while you scroll and while a shape is being rebuilt, and fades back in once things settle.
-     (Dock magnification only scales icons, so the dock keeps its size and its lens.) */
+     It fades out while the dock magnifies (the map is sized for the resting dock), while you scroll, and while a
+     shape is being rebuilt, and fades back in once things settle. */
   function lensMap(w, h, r, edge) {
     const q = 2, W = Math.max(2, Math.ceil(w / q)), H = Math.max(2, Math.ceil(h / q));
     const E = Math.max(1, edge / q), hw = W / 2, hh = H / 2, R = Math.min(r / q, hw, hh);
@@ -441,9 +441,9 @@
   // One record per refracting shape: { el, key, amt (current strength), target, raf, building }
   const LENS_PARTS = { dock: ["#fx-dock", 18], island: ["#fx-island", 16], sidebar: ["#fx-sidebar", 22] };
   const lenses = new Map();
-  let lensTimer = 0;
+  let magnifying = false, lensTimer = 0;
   const lensStrength = () => Math.round(8 + 44 * state.refractAmt);
-  const lensQuiet = () => root.hasAttribute("data-fx-scrolling") || doc.hidden;
+  const lensQuiet = () => magnifying || root.hasAttribute("data-fx-scrolling") || doc.hidden;
   function fadeLens(L, to, ms) {
     cancelAnimationFrame(L.raf);
     L.target = to;
@@ -466,7 +466,7 @@
     const r = Math.min(parseFloat(getComputedStyle(L.el).borderTopLeftRadius) || 0, w / 2, h / 2);
     const key = [w, h, Math.round(r)].join("x");
     if (L.key === key) return true;
-    // Only build for a size that has held still for a moment (a resize or a settings change may still be animating).
+    // Only build for a size that has held still for a moment (the dock may still be easing back after magnifying).
     const now = performance.now();
     if (L.seen !== key) { L.seen = key; L.seenAt = now; return false; }
     if (now - L.seenAt < 250) return false;
@@ -497,7 +497,7 @@
       if (L.target !== want || (!L.raf && Math.abs(L.amt - want) > 0.01)) fadeLens(L, want, 320);
     }
   }
-  // Fade every lens out right now (scrolling started). No idle wait: this must beat the motion.
+  // Fade every lens out right now (pointer entered the dock, scrolling started). No idle wait: this must beat the motion.
   function quietLenses() { lenses.forEach((L) => { if (L.target !== 0 || L.amt > 0) fadeLens(L, 0, 100); }); scheduleLenses(320); }
   function scheduleLenses(ms) { clearTimeout(lensTimer); lensTimer = setTimeout(() => idle(syncLenses), ms == null ? 160 : ms); }
   const ro = win.ResizeObserver ? new ResizeObserver(() => { scheduleLenses(); measureSidebar(); }) : null;
@@ -850,15 +850,15 @@
   navObserver.observe(chrome, { subtree: true, attributes: true, attributeFilter: ["data-active"], attributeOldValue: true });
   cleanups.push(() => navObserver.disconnect());
 
-  // Dock magnification, animated per frame. 1.2 first resized the icons with 0.16s CSS transitions that a fast
-  // sweep retargeted every frame, and every resize re-laid out the dock and re-blurred its backdrop: smooth when
-  // slow, choppy when quick. Now the magnified spot glides after the pointer (time constant ~45ms), the effect
-  // grows in and out on enter and leave, sizes follow a smooth cosine falloff, and only transforms change
-  // (see #fx-dock .fx-di in theme.css). The loop runs only while something is still moving.
+  // Dock magnification, animated per frame instead of by CSS transitions. A fast sweep used to retarget a 0.16s
+  // transition on every icon every frame, so each frame restarted an ease from wherever it was: fine when slow,
+  // choppy when quick. Now the magnified spot glides after the pointer (time constant ~45ms), the effect grows in
+  // and out on enter and leave, and sizes follow a smooth cosine falloff. Icons resize and spread, and the dock
+  // grows around its center. The loop runs only while something is still moving.
   const MAG_FOLLOW = 0.045, MAG_GROW = 0.09, MAG_SHRINK = 0.12; // seconds
   let magRaf = 0, magPtr = null, magPos = null, magAmt = 0, magWant = 0, magLast = 0;
-  // Item centers relative to the dock's center, from the layout rules in theme.css (8px padding, 4px gaps,
-  // separators 1px plus 4px margins), so nothing is measured while icons are scaled.
+  // Item centers at rest, relative to the dock's center (the dock grows symmetrically around it), from the layout
+  // rules in theme.css (8px padding, 4px gaps, separators 1px plus 4px margins), so nothing is measured mid-sweep.
   function restCenters(dock) {
     const size = state.dockSize, kids = [...dock.children].filter((n) => n.classList.contains("fx-di") || n.classList.contains("fx-sep"));
     const out = [];
@@ -887,6 +887,7 @@
     if (magWant === 0 && magAmt < 0.003) {
       items.forEach((d) => d.style.removeProperty("--s"));
       magAmt = 0; magPos = null; magLast = 0;
+      magnifying = false; scheduleLenses(0); // back at rest size: the lens can return
       return;
     }
     const reach = state.dockSize * 2.4, A = state.magnifyAmt * magAmt;
@@ -902,6 +903,7 @@
     if (!e.target.closest || !e.target.closest("#fx-dock") || !state.magnify || !motionOn()) return;
     magPtr = state.dockPos === "left" ? e.clientY : e.clientX;
     magWant = 1;
+    if (!magnifying) { magnifying = true; quietLenses(); }
     kickMag();
   });
   listen(chrome, "pointerout", (e) => {

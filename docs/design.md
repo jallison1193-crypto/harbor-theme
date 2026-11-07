@@ -63,7 +63,7 @@ The hero card uses 24px inside Harbor's 28px banner. A track with 4px padding an
 ## 1.2: Polish pass
 - Playback: every Fathom layer steps aside while Harbor's player is mounted, because on Windows the video can be a native layer behind a transparent web view.
 - Customize is a labeled button in every navigation style, plus a one-time card that points at it after install.
-- Dock magnification is transform-only: the glyph and the selection pill scale in place, centered in their slot, following a smoothed pointer position with a cosine falloff. Icons no longer spread apart and the dock glass keeps its size, so a fast sweep never re-lays out the dock or re-blurs its backdrop, and refraction stays on while magnifying.
+- Dock magnification is animated per frame: the magnified spot follows a smoothed pointer position with a cosine falloff and grows in and out on enter and leave. Icons resize and spread and the dock grows around its center; glyphs and the selection pill stay centered on the dock's middle line at every size.
 - The sidebar fits its labels (152px with the default pages, was 220px).
 - Spacing and corners come from the scale and hierarchy above.
 - Speed: see the Performance section of the README for what changed and the measurements.
