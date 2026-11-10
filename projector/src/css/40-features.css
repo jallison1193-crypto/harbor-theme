@@ -141,6 +141,7 @@ html[data-pj] .fixed.inset-0.z-\[110\] [role="presentation"] {
 html[data-pj]:not([data-pj-motion="off"]) .fixed.inset-0.z-\[110\] [role="presentation"] {
   transform-origin: 50% 0; animation: pj-card-swing .34s cubic-bezier(.2, .8, .2, 1) both;
 }
+html[data-pj] .fixed.inset-0.z-\[110\] [role="presentation"][data-pj-grown] { animation: none; }
 @keyframes pj-card-swing { from { rotate: x 9deg; translate: 0 6px; } to { rotate: x 0deg; translate: 0 0; } }
 @media (prefers-reduced-motion: reduce) { html[data-pj] .fixed.inset-0.z-\[110\] [role="presentation"] { animation: none; } }
 /* A thin line of light along the top edge, like the projector catching the card, in the poster's color. */
