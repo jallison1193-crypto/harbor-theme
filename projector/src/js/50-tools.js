@@ -41,6 +41,7 @@
       ["reveal", "Title reveal", "Banner titles rise in word by word.", false],
       ["lights", "House lights", "The page dims behind the hover preview and fades to black before playback.", false],
       ["leak", "Light leak", "A warm sweep of light when you change pages, like film running through a gate.", true],
+      ["grow", "Preview grows from the card", "Harbor's hover preview, with the summary and details, grows out of the card you point at instead of popping up on its own.", true],
       ["glow", "Poster light", "The poster you point at lights the row in its own colors, and Harbor's hover preview card too.", true],
       ["curtain", "Scene fade", "Each new page clears in from a soft dim, like a gentle cut between scenes.", false],
       ["brand", "Streaming tile glow", "Your Streaming tiles light up in each service's own color when you point at them.", false],

@@ -109,11 +109,11 @@
     spill: true, focus: true, reveal: true, lights: true, glow: true, rise: true, parallax: true,
     icons: true, beam: true, leak: true,   // signature pieces (js/25-icons.js, js/70-signature.js)
     wide: false, grain: false,
-    brand: true, bulbs: true, curtain: true,    // streaming tile glow, Continue Watching bulbs, curtain between pages
+    brand: true, bulbs: true, curtain: true, grow: true,   // streaming tile glow, Continue Watching bulbs, curtain between pages
     perf: "auto",         // auto | balanced | lite (milestone 4 panel, Speed tab)
     navPos: "left",       // left | top | bottom: where Harbor's sidebar sits (js/20-nav.js, css/20-nav.css)
   };
-  const BOOLS = ["spill", "focus", "reveal", "lights", "glow", "rise", "parallax", "wide", "grain", "icons", "beam", "leak", "brand", "bulbs", "curtain"];
+  const BOOLS = ["spill", "focus", "reveal", "lights", "glow", "rise", "parallax", "wide", "grain", "icons", "beam", "leak", "brand", "bulbs", "curtain", "grow"];
   function load() {
     let s = {};
     try { s = JSON.parse(store.get(KEY) || "{}") || {}; } catch (e) { s = {}; }
