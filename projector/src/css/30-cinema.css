@@ -1,0 +1,204 @@
+/* Cinema layer (milestone 2): light spill, focus pull, title reveal, house lights, hover glow, rise-in,
+   banner pointer tilt, widescreen bars, grain. Switches are html[data-pj-*] attributes set from js/30-cinema.js;
+   they already account for the motion setting and Lite mode, so each rule checks one attribute.
+   Only transform and opacity animate. Everything costly (the spill, the soft copy, the glow, the grain tile) is
+   painted once and then only faded or moved. */
+
+/* Light spill: two small canvases inside the banner's anchor, scaled up and crossfaded. z-index -1 puts it behind
+   the page's own content (rows and their titles paint over it) while it still scrolls with the banner. */
+#projector-layer-spill {
+  position: absolute; z-index: -1; pointer-events: none;
+  left: -14%; right: -14%; top: -30%; height: 175%;
+  --pj-spill: .62;
+}
+html[data-pj-scheme="light"] #projector-layer-spill { --pj-spill: .34; }
+#projector-layer-spill canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; transition: opacity 1.1s var(--pj-ease);
+}
+#projector-layer-spill canvas[data-on] { opacity: var(--pj-spill); }
+html:not([data-pj-spill="on"]) #projector-layer-spill,
+html[data-pj-perf="lite"] #projector-layer-spill { display: none; }
+
+/* Focus pull: the soft copy sits just above the picture and fades out while the picture settles. */
+#projector-layer-pull {
+  position: absolute; pointer-events: none; object-fit: cover; filter: var(--pj-grade);
+  animation: pj-unblur 1.1s var(--pj-ease) both;
+}
+html[data-pj-focus="on"] [data-pj-pull] > img.object-cover { animation: pj-settle 1.3s var(--pj-ease) both; }
+html:not([data-pj-focus="on"]) #projector-layer-pull { display: none; }
+@keyframes pj-unblur { from { opacity: .9; } to { opacity: 0; } }
+@keyframes pj-settle { from { transform: scale(1.045); } }
+
+/* Title reveal: the banner's text block rises in, title first. a/b are the same animation under two names so a new
+   slide restarts it without a forced layout. Fill is "backwards" only, so when it ends Harbor's own styles (the
+   logo's load fade, for one) are back in charge. */
+html[data-pj-reveal="on"] [data-pj-reveal="a"] > * { animation: pj-soft-a .7s var(--pj-ease) .34s backwards; }
+html[data-pj-reveal="on"] [data-pj-reveal="b"] > * { animation: pj-soft-b .7s var(--pj-ease) .34s backwards; }
+html[data-pj-reveal="on"] [data-pj-reveal] > :first-child { animation-delay: .04s; }
+html[data-pj-reveal="on"] [data-pj-reveal] > :nth-child(n+4) { animation-delay: .44s; }
+html[data-pj-reveal="on"] [data-pj-reveal="a"] > [data-pj-title] { animation: pj-title-a .85s var(--pj-ease) .12s backwards; }
+html[data-pj-reveal="on"] [data-pj-reveal="b"] > [data-pj-title] { animation: pj-title-b .85s var(--pj-ease) .12s backwards; }
+@keyframes pj-soft-a { from { opacity: 0; transform: translateY(8px); } }
+@keyframes pj-soft-b { from { opacity: 0; transform: translateY(8px); } }
+@keyframes pj-title-a { from { opacity: 0; transform: translateY(26px); } }
+@keyframes pj-title-b { from { opacity: 0; transform: translateY(26px); } }
+
+/* House lights: a quick fade to black when Play is pressed. Removed the moment Harbor's player mounts (and hidden by
+   the projector-layer rule in css/10-base.css), so it never covers the video. The dim behind the hover preview is
+   under Fragile, below. */
+#projector-layer-lights {
+  position: fixed; inset: 0; z-index: 130; pointer-events: none;
+  background: #000; opacity: 0;
+}
+#projector-layer-lights[data-state="black"] { animation: pj-black .45s var(--pj-ease) forwards; }
+#projector-layer-lights[data-state="lift"] { animation: pj-lift .3s ease forwards; }
+@keyframes pj-black { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pj-lift { from { opacity: 1; } to { opacity: 0; } }
+
+/* Hover glow: a radial gradient in the poster's own color (--pj-glow, set once per poster by JS; the accent until
+   then), painted once behind the poster and only faded. The lift itself is Harbor's. */
+html[data-pj-glow="on"] [data-preview-anchor] { isolation: isolate; }
+html[data-pj-glow="on"] [data-preview-anchor]::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  left: -14%; right: -14%; top: 8%; bottom: -10%;
+  background: radial-gradient(closest-side, var(--pj-glow, var(--color-accent)), transparent);
+  opacity: 0; transition: opacity .35s var(--pj-ease);
+}
+html[data-pj-glow="on"] .group:hover > [data-preview-anchor]::before,
+html[data-pj-glow="on"] .group:focus-visible > [data-preview-anchor]::before { opacity: .62; }
+html[data-pj-glow="on"][data-pj-scheme="light"] .group:hover > [data-preview-anchor]::before,
+html[data-pj-glow="on"][data-pj-scheme="light"] .group:focus-visible > [data-preview-anchor]::before { opacity: .42; }
+
+/* Poster light (js/30-cinema.js section 6): a blurred copy of the poster drawn once into canvas.pj-amb, placed in
+   the card behind everything (the card is isolated, so z-index -1 stays inside it). Faded in on hover or keyboard
+   focus and lifted with Harbor's own poster lift. When it is there, the plain radial glow above steps aside. */
+html[data-pj] canvas.pj-amb { display: none; }
+html[data-pj-glow="on"] button.group:has(> canvas.pj-amb) { isolation: isolate; }
+html[data-pj-glow="on"] button.group:has(> canvas.pj-amb) > [data-preview-anchor]::before { display: none; }
+html[data-pj-glow="on"] canvas.pj-amb {
+  display: block; position: absolute; z-index: -1; pointer-events: none; border-radius: 28px;
+  opacity: 0; transform: translate3d(0, 6px, 0) scale(.96);
+  transition: opacity .45s var(--pj-ease), transform .45s var(--pj-ease);
+}
+html[data-pj-glow="on"] button.group:is(:hover, :focus-visible) > canvas.pj-amb,
+html[data-pj-glow="on"] [data-tv-focused] > canvas.pj-amb { opacity: 1; transform: translate3d(0, -6px, 0) scale(1); }
+html[data-pj-glow="on"][data-pj-scheme="light"] button.group:is(:hover, :focus-visible) > canvas.pj-amb { opacity: .6; }
+html[data-pj-motion="off"] canvas.pj-amb { transition: none; }
+/* Wide cards (continue watching, new episodes, collections): lit by script (data-on) since their hover lives on
+   different elements. Inside the card it sits behind (the card is isolated); before a collection card it is a
+   plain earlier sibling, so the card paints over it. Rounder corners to match the wide shape. */
+html[data-pj-glow="on"] div.group:has(> canvas.pj-amb[data-wide="in"]) { isolation: isolate; }
+html[data-pj-glow="on"] canvas.pj-amb[data-wide] { border-radius: 36px; }
+html[data-pj-glow="on"] canvas.pj-amb[data-wide="sib"] { z-index: auto; }
+html[data-pj-glow="on"] canvas.pj-amb[data-wide][data-on] { opacity: .85; transform: translate3d(0, -4px, 0) scale(1); }
+html[data-pj-glow="on"][data-pj-scheme="light"] canvas.pj-amb[data-wide][data-on] { opacity: .5; }
+/* The same light behind Harbor's hover preview card (first child of its frame, so the card paints over it). */
+html[data-pj] canvas.pj-amb-prev { display: none; }
+html[data-pj-glow="on"] canvas.pj-amb-prev {
+  display: block; position: absolute; pointer-events: none; border-radius: 40px; opacity: .85;
+  animation: pj-amb-in .5s var(--pj-ease) both;
+}
+html[data-pj-glow="on"][data-pj-scheme="light"] canvas.pj-amb-prev { opacity: .55; }
+html[data-pj-motion="off"] canvas.pj-amb-prev { animation: none; }
+@keyframes pj-amb-in { from { opacity: 0; transform: scale(.94); } }
+
+/* Banner pointer tilt: JS writes inline transforms on the carousel frame, the picture and the text block (marked
+   data-pj-tilt); these transitions smooth each move and ease everything back when the pointer leaves. */
+html[data-pj-parallax="on"] [data-pj-tilt="frame"] { transition: transform .8s var(--pj-ease); }
+html[data-pj-parallax="on"] [data-pj-tilt="copy"] { transition: transform .7s var(--pj-ease); }
+html[data-pj-parallax="on"] img[data-pj-tilt="art"] { transition: opacity .5s ease, transform .7s var(--pj-ease); }
+
+/* Widescreen bars: black halves that open on each slide. The 2.39:1 crop is under Fragile. */
+#projector-layer-bars { position: absolute; inset: 0; z-index: 25; pointer-events: none; display: none; }
+html[data-pj-wide="on"] #projector-layer-bars { display: block; }
+#projector-layer-bars i { position: absolute; left: 0; right: 0; height: 50.5%; background: #000; transform: scaleY(0); }
+#projector-layer-bars i:first-child { top: 0; transform-origin: top; }
+#projector-layer-bars i:last-child { bottom: 0; transform-origin: bottom; }
+html[data-pj-motion="on"] #projector-layer-bars[data-run="a"] i { animation: pj-bars-a .9s var(--pj-ease) both; }
+html[data-pj-motion="on"] #projector-layer-bars[data-run="b"] i { animation: pj-bars-b .9s var(--pj-ease) both; }
+@keyframes pj-bars-a { from { transform: scaleY(1); } to { transform: scaleY(0); } }
+@keyframes pj-bars-b { from { transform: scaleY(1); } to { transform: scaleY(0); } }
+
+/* Grain: one noise tile, jumped about 10 times a second. Under Harbor's hover preview (z 110) and window controls. */
+#projector-layer-grain {
+  position: fixed; inset: -25%; z-index: 100; pointer-events: none;
+  opacity: .06; background-repeat: repeat;
+  animation: pj-grain 1s steps(10) infinite;
+}
+html[data-pj-scheme="light"] #projector-layer-grain { opacity: .045; }
+html[data-pj-motion="off"] #projector-layer-grain { animation: none !important; }
+@keyframes pj-grain {
+  0% { transform: translate(0, 0); } 10% { transform: translate(-5%, -8%); } 20% { transform: translate(-12%, 4%); }
+  30% { transform: translate(6%, -12%); } 40% { transform: translate(-4%, 12%); } 50% { transform: translate(-12%, 8%); }
+  60% { transform: translate(12%, 0); } 70% { transform: translate(0, 12%); } 80% { transform: translate(3%, 11%); } 90% { transform: translate(-8%, 6%); }
+}
+
+/* ---- Fragile: cinema layer. Checked against Harbor 0.9.113 ------------------------------------------------- */
+
+/* Rise-in on scroll. CSS scroll-driven animations; engines without them skip the block and just show the content
+   (JS also leaves data-pj-rise off there). Each row (components/row.tsx: the [class~="group/row"] wrapper) drives
+   its own cards so the stagger works inside a horizontal rail, whose own scroller can't. Animates opacity and the
+   translate property, so Harbor's hover lift (a transform on the poster inside the card) is untouched. Row titles
+   (h3.truncate.font-medium.tracking-tight, as in css/60-pages.css) follow their own position. */
+@supports (animation-timeline: view()) {
+  html[data-pj-rise="on"] [class~="group/row"] { view-timeline: --pj-row block; }
+  html[data-pj-rise="on"] [class~="group/row"] .grid-flow-col > * {
+    animation: pj-rise linear both;
+    animation-timeline: --pj-row;
+    animation-range: entry calc(var(--pj-i, 0) * 4%) entry calc(70% + var(--pj-i, 0) * 4%);
+  }
+  html[data-pj-rise="on"] [class~="group/row"] .grid-flow-col > :nth-child(2) { --pj-i: 1; }
+  html[data-pj-rise="on"] [class~="group/row"] .grid-flow-col > :nth-child(3) { --pj-i: 2; }
+  html[data-pj-rise="on"] [class~="group/row"] .grid-flow-col > :nth-child(4) { --pj-i: 3; }
+  html[data-pj-rise="on"] [class~="group/row"] .grid-flow-col > :nth-child(5) { --pj-i: 4; }
+  html[data-pj-rise="on"] [class~="group/row"] .grid-flow-col > :nth-child(6) { --pj-i: 5; }
+  html[data-pj-rise="on"] [class~="group/row"] .grid-flow-col > :nth-child(n+7) { --pj-i: 6; }
+  html[data-pj-rise="on"] main h3.truncate.font-medium.tracking-tight {
+    animation: pj-rise linear both;
+    animation-timeline: view(block);
+    animation-range: entry 0% entry 70%;
+  }
+}
+@keyframes pj-rise { from { opacity: 0; translate: 0 28px; } }
+
+/* House lights behind the hover preview. components/hover-preview.tsx renders one full-screen layer,
+   div.pointer-events-none.fixed.inset-0.z-[110], with the card inside. Its ::before dims the page under the card,
+   so the dim exists exactly as long as the preview does. While the preview leaves, its frame gets
+   .pointer-events-none and the dim fades out with it. */
+html[data-pj-lights="on"] div.pointer-events-none.fixed.inset-0.z-\[110\]::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: #000; opacity: .42;
+  animation: pj-dim .4s var(--pj-ease) backwards;
+  transition: opacity .22s ease;
+}
+html[data-pj-lights="on"][data-pj-scheme="light"] div.pointer-events-none.fixed.inset-0.z-\[110\]::before { background: #1b1813; opacity: .2; }
+html[data-pj-lights="on"] div.pointer-events-none.fixed.inset-0.z-\[110\]:has(> .pointer-events-none)::before { opacity: 0; }
+@keyframes pj-dim { from { opacity: 0; } }
+
+/* Harbor's hover ring (index.css: button.group:hover .harbor-card-ring::after, accent at 60%) takes the poster's
+   glow color, so ring and glow read as one light. */
+html[data-pj-glow="on"] button.group:not([data-no-card-ring]):hover .harbor-card-ring::after {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--pj-glow, var(--color-accent)) 72%, transparent);
+}
+
+/* Widescreen crop. hero-carousel.tsx: each slide is [aria-hidden].w-full.shrink-0 holding the Hero <section>
+   (h-[560px], or h-[78vh] when full) or a placeholder of the same height; both take the 2.39:1 ratio. */
+html[data-pj-wide="on"] [data-scroll-anchor="hero"] [aria-hidden].w-full.shrink-0 > * {
+  height: auto !important; min-height: 420px !important; aspect-ratio: 2.39 / 1;
+}
+
+/* Hover grace for every pointer-driven light. Lights come up at once, but going out waits a beat, so the pointer
+   skimming an edge (or Harbor's lift shifting the card under it) never flashes them. Fading stays transform/opacity. */
+html[data-pj] [data-preview-anchor]::before,
+html[data-pj] [data-preview-anchor]::after,
+html[data-pj] [data-preview-anchor] .harbor-poster::before,
+html[data-pj] canvas.pj-amb,
+html[data-pj] .harbor-service-tile::before { transition-delay: .14s !important; }
+html[data-pj] .group:is(:hover, :focus-visible) > [data-preview-anchor]::before,
+html[data-pj] .group:is(:hover, :focus-visible) [data-preview-anchor]::after,
+html[data-pj] .group:is(:hover, :focus-visible) [data-preview-anchor] .harbor-poster::before,
+html[data-pj] button.group:is(:hover, :focus-visible) > canvas.pj-amb,
+html[data-pj] canvas.pj-amb[data-on],
+html[data-pj] .harbor-service-tile:is(:hover, :focus-visible)::before { transition-delay: 0s !important; }
+html[data-pj-motion="off"] :is(canvas.pj-amb, [data-preview-anchor]) { transition-delay: 0s !important; }

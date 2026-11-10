@@ -1,0 +1,253 @@
+/* 9. Harbor features: milestone 3 ---------------------------------------- */
+/* Modals and search: solid, no blur (Harbor blurs behind search; at 93% opacity the blur was barely visible and
+   still cost a full-screen filter). */
+html[data-pj] .modal-panel {
+  background-color: var(--color-elevated) !important;
+  border-color: var(--color-edge-soft) !important;
+  border-radius: var(--pj-r-md) !important;
+  box-shadow: 0 40px 90px -30px rgb(0 0 0 / .75) !important;
+}
+html[data-pj] .harbor-search-backdrop {
+  background: color-mix(in srgb, var(--color-canvas) 94%, transparent) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html[data-pj] ::selection { background: color-mix(in srgb, var(--color-accent) 38%, transparent); }
+
+/* Search: a marquee-style input in the display face with an accent caret. */
+html[data-pj] .harbor-search-backdrop ~ div .modal-panel input { caret-color: var(--color-accent); font-family: var(--font-display); font-weight: var(--pj-d-weight, 500); letter-spacing: -.01em; }
+html[data-pj] .harbor-search-backdrop ~ div .modal-panel > .border-b { border-color: var(--color-edge-soft) !important; }
+
+/* Keyboard and gamepad focus (lib/keyboard-navigation.ts marks data-tv-focused and html[data-input-modality]).
+   A strong accent ring with a soft accent bloom. On poster cards the ring moves onto the poster so it hugs the art. */
+html[data-pj] { --tv-focus-ring: var(--color-accent); }
+html[data-pj]:not([data-input-modality="pointer"]) [data-tv-focused="true"] {
+  box-shadow: 0 0 0 2px var(--color-canvas), 0 0 0 4px var(--color-accent), 0 0 18px 2px color-mix(in srgb, var(--color-accent) 45%, transparent) !important;
+}
+html[data-pj]:not([data-input-modality="pointer"]) [data-tv-focused="true"]:is(:has(> [data-preview-anchor]), :has(> .harbor-poster)),
+html[data-pj] :is(button, a, [tabindex]):focus-visible:is(:has(> [data-preview-anchor]), :has(> .harbor-poster)) {
+  box-shadow: none !important; outline: none !important;
+}
+html[data-pj]:not([data-input-modality="pointer"]) [data-tv-focused="true"] > :is([data-preview-anchor] > .harbor-poster, .harbor-poster),
+html[data-pj]:not([data-input-modality="pointer"]) [data-tv-focused="true"] > [data-preview-anchor] > .harbor-poster,
+html[data-pj] :is(button, a, [tabindex]):focus-visible > .harbor-poster,
+html[data-pj] :is(button, a, [tabindex]):focus-visible > [data-preview-anchor] > .harbor-poster {
+  outline: 3px solid var(--color-accent) !important; outline-offset: 3px;
+  box-shadow: 0 0 22px 2px color-mix(in srgb, var(--color-accent) 40%, transparent) !important;
+}
+html[data-pj] :is(button, a, select, summary, [tabindex]):focus-visible { outline-color: var(--color-accent) !important; }
+
+/* Back to top (components/back-to-top.tsx) and the add-on page's ScrollTopButton: solid, no blur. */
+html[data-pj] button.fixed.bottom-5.end-5.z-40.rounded-md,
+html[data-pj] button.fixed.bottom-6.end-6.rounded-full {
+  width: 40px; height: 40px; border-radius: var(--pj-r-sm) !important;
+  background: var(--color-elevated) !important; border: 1px solid var(--color-edge-soft) !important; color: var(--color-ink-muted) !important;
+  box-shadow: 0 10px 24px -12px rgb(0 0 0 / .6); -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html[data-pj] button.fixed.bottom-5.end-5.z-40.rounded-md:hover,
+html[data-pj] button.fixed.bottom-6.end-6.rounded-full:hover { color: var(--color-accent) !important; border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-edge-soft)) !important; }
+
+/* ======================================================================================================
+   Fragile (Harbor 0.9.113)
+   These target Tailwind class combinations and inline styles in Harbor's components, because Harbor gives
+   these pieces no data attributes. Check them after every Harbor update.
+   ====================================================================================================== */
+
+/* Badges on cards (poster.tsx Badge, DUB, CinemaBadge, RerunBadge, ScoreStack, RankBadge, ContinueCard pills,
+   episode number and rating). One small shape: 4px corners, solid canvas, hairline, no blur. */
+html[data-pj] :is([data-preview-anchor], .harbor-poster, [data-ep]) :is(span, div).absolute.rounded-md,
+html[data-pj] span[role="button"].absolute.start-2.top-2.rounded-md {
+  min-height: 18px; display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px !important; box-sizing: border-box;
+  border-radius: 4px !important; border: 1px solid var(--color-edge-soft) !important; box-shadow: none !important;
+  background: color-mix(in srgb, var(--color-canvas) 92%, transparent) !important; color: var(--color-ink-muted) !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important; filter: none !important;
+}
+html[data-pj] :is([data-preview-anchor], .harbor-poster, [data-ep]) :is(span, div).absolute.rounded-md.uppercase,
+html[data-pj] span[role="button"].absolute.start-2.top-2.rounded-md { font-size: 10px !important; font-weight: 600 !important; letter-spacing: .06em !important; }
+html[data-pj] :is([data-preview-anchor], .harbor-poster, [data-ep]) :is(span, div).absolute.rounded-md :is(.text-ink, .font-semibold) { color: var(--color-ink) !important; }
+/* Accent variant (accent Badge, DUB, ContinueCard "+N" new episodes): solid stock color. */
+html[data-pj] :is([data-preview-anchor], .harbor-poster, [data-ep]) .absolute.rounded-md.bg-accent\/90,
+html[data-pj] .harbor-poster span.rounded-full.bg-accent\/90 {
+  background: var(--color-accent) !important; color: var(--pj-on-accent) !important; border-color: transparent !important;
+}
+html[data-pj] .harbor-poster span.rounded-full.bg-accent\/90 {
+  height: 18px !important; padding: 0 6px !important; border-radius: 4px !important; font-size: 10px !important; font-weight: 700 !important; letter-spacing: .06em !important;
+}
+/* Round markers (watchlist and watched dots): smaller, solid, watched in the stock color. */
+html[data-pj] :is([data-preview-anchor], .harbor-poster, [data-ep]) span.absolute.h-6.w-6.rounded-full {
+  width: 20px !important; height: 20px !important; background: color-mix(in srgb, var(--color-canvas) 92%, transparent) !important;
+  color: var(--color-ink) !important; box-shadow: 0 0 0 1px var(--color-edge-soft) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html[data-pj] :is([data-preview-anchor], .harbor-poster, [data-ep]) span.absolute.h-6.w-6.rounded-full:is(.bg-emerald-500\/90, .bg-emerald-400\/22) {
+  background: var(--color-accent) !important; color: var(--pj-on-accent) !important; box-shadow: none !important;
+}
+/* Episode title badges (views/detail/badges.tsx): New is solid stock color with no shimmer loop; Upcoming is quiet. */
+html[data-pj] h4 > .rounded-\[5px\] { border-radius: 4px !important; padding: 1px 5px !important; letter-spacing: .08em !important; }
+html[data-pj] h4 > .rounded-\[5px\].border-accent\/30 { background: var(--color-accent) !important; color: var(--pj-on-accent) !important; border-color: transparent !important; }
+html[data-pj] h4 > .rounded-\[5px\] .animate-shimmer { display: none !important; }
+
+/* Continue watching (ContinueCard): tighter corners, lighter vignette, a thin accent line for progress. */
+html[data-pj] .harbor-poster.aspect-\[16\/9\] { border-radius: var(--pj-r-sm) !important; }
+html[data-pj] .harbor-poster.aspect-\[16\/9\] > [class*="shadow-[inset_0_0_100px"] { box-shadow: inset 0 0 60px rgb(0 0 0 / .28) !important; }
+html[data-pj] :is(.harbor-poster, [data-ep] .rounded-lg) > .absolute.inset-x-0.bottom-0.h-\[3px\] {
+  height: 2px !important; background: color-mix(in srgb, var(--color-ink) 22%, transparent) !important;
+}
+html[data-pj] :is(.harbor-poster, [data-ep] .rounded-lg) > .absolute.inset-x-0.bottom-0.h-\[3px\] > .bg-accent { box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 60%, transparent); }
+
+/* Top 10 (top-rank-card.tsx): the outlined Oswald numeral becomes a solid serif numeral in its own column left of
+   the poster (the poster covers the right 60%), so no digit hides behind the art. */
+html[data-pj] { --font-rank: var(--font-display); }
+html[data-pj] :is(button[data-no-card-ring][style*="228 / 246"], [data-scroll-anchor="top10"] button[data-no-card-ring]) > span[aria-hidden="true"] {
+  inset-inline-start: 0 !important; width: 40%; height: 90cqw !important; box-sizing: border-box; padding-inline-end: 3cqw;
+  justify-content: flex-end; align-items: flex-end !important;
+  font-family: var(--font-display) !important; font-weight: var(--pj-d-weight, 500) !important; font-size: 64cqw !important;
+  line-height: .78 !important; letter-spacing: -.05em !important; font-variant-numeric: lining-nums;
+  color: color-mix(in srgb, var(--color-ink) 32%, transparent) !important;
+  -webkit-text-stroke: 0 !important; -webkit-mask-image: none !important; mask-image: none !important;
+}
+html[data-pj] :is(button[data-no-card-ring][style*="228 / 246"], [data-scroll-anchor="top10"] button[data-no-card-ring]) > span[aria-hidden="true"]:has(> span) { font-size: 36cqw !important; letter-spacing: -.06em !important; }
+html[data-pj] :is(button[data-no-card-ring][style*="228 / 246"], [data-scroll-anchor="top10"] button[data-no-card-ring]) > span[aria-hidden="true"] > span {
+  -webkit-text-stroke: 0 !important; color: inherit !important; margin-inline-start: 0 !important;
+}
+
+/* Spoilers (lib/spoilers.ts THUMB and TEXT). Harbor blurs live with a 14px filter on every hidden episode; Projector
+   uses a static frosted cover instead (no filter cost) that lifts on hover or keyboard focus of the row. */
+html[data-pj] .blur-\[14px\] { filter: none !important; scale: none !important; transform: none !important; position: relative; }
+html[data-pj] .blur-\[14px\]::after {
+  content: "No spoilers"; position: absolute; inset: 0; z-index: 1; display: grid; place-items: center;
+  font: 600 10px/1 var(--font-sans); letter-spacing: .14em; text-transform: uppercase; color: var(--color-ink-muted);
+  background:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--color-ink) 5%, transparent) 0 1px, transparent 1px 6px),
+    color-mix(in srgb, var(--color-surface) 94%, transparent);
+  border-radius: inherit; opacity: 1; transition: opacity 180ms var(--pj-ease, ease);
+}
+html[data-pj] .group:is(:hover, :focus-within) .blur-\[14px\]::after { opacity: 0; }
+html[data-pj] .blur-\[5px\].select-none {
+  filter: none !important; transition: none !important;
+  color: transparent !important; text-shadow: 0 0 7px color-mix(in srgb, var(--color-ink) 70%, transparent);
+}
+html[data-pj] .group:is(:hover, :focus-within) .blur-\[5px\].select-none { color: inherit !important; text-shadow: none; }
+
+/* Hover preview (components/hover-preview.tsx, crown.tsx, block.tsx, marquee.tsx). Root: the fixed z-[110] layer.
+   A credits card: serif title, small tracked credits line, a static glow in the stock color. The house lights
+   dimming behind it belongs to the cinema module. */
+html[data-pj] .fixed.inset-0.z-\[110\] [role="presentation"] {
+  border-radius: var(--pj-r-md) !important; background: var(--color-elevated) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pj-glow, var(--color-accent)) 26%, var(--color-edge-soft)),
+    0 30px 70px -28px rgb(0 0 0 / .85), 0 0 64px -14px color-mix(in srgb, var(--pj-glow, var(--color-accent)) 55%, transparent) !important;
+}
+/* Open tilt: the card swings in from a slight lean and settles flat once, like a screen dropping into place.
+   Uses the separate rotate/translate properties so Harbor's own transform on the card is left alone. */
+html[data-pj]:not([data-pj-motion="off"]) .fixed.inset-0.z-\[110\] [role="presentation"] {
+  transform-origin: 50% 0; animation: pj-card-swing .34s cubic-bezier(.2, .8, .2, 1) both;
+}
+@keyframes pj-card-swing { from { rotate: x 9deg; translate: 0 6px; } to { rotate: x 0deg; translate: 0 0; } }
+@media (prefers-reduced-motion: reduce) { html[data-pj] .fixed.inset-0.z-\[110\] [role="presentation"] { animation: none; } }
+/* A thin line of light along the top edge, like the projector catching the card, in the poster's color. */
+html[data-pj] .fixed.inset-0.z-\[110\] [role="presentation"]::after {
+  content: ""; position: absolute; left: 12%; right: 12%; top: 0; height: 1px; z-index: 5; pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--pj-glow, var(--color-accent)) 50%, #fff), transparent);
+}
+/* Title-card rule above the title, the same mark as page headings. */
+html[data-pj] .fixed.inset-0.z-\[110\] [role="presentation"] h3::before {
+  content: ""; display: block; width: 28px; height: 2px; margin-bottom: 10px; border-radius: 1px;
+  background: linear-gradient(90deg, var(--pj-glow, var(--color-accent)), transparent);
+}
+html[data-pj] .fixed.inset-0.z-\[110\] [role="presentation"] h3 {
+  font-family: var(--font-display) !important; font-weight: var(--pj-d-weight, 500) !important;
+  font-size: 25px !important; line-height: 1.08 !important; letter-spacing: -.015em !important; color: var(--color-ink) !important;
+}
+html[data-pj] .fixed.inset-0.z-\[110\] .h-\[52\%\],
+html[data-pj] .fixed.inset-0.z-\[110\] .relative.w-full.overflow-hidden > .pointer-events-none.absolute.inset-0 {
+  background: linear-gradient(to top, var(--color-elevated) 0%, color-mix(in srgb, var(--color-elevated) 55%, transparent) 45%, transparent 100%) !important;
+}
+html[data-pj] .fixed.inset-0.z-\[110\] span.absolute.start-3.top-3 {
+  border-radius: 4px !important; border-color: transparent !important; background: var(--color-accent) !important; color: var(--pj-on-accent) !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html[data-pj] .fixed.inset-0.z-\[110\] [data-stagger="1"].truncate.tabular-nums {
+  font-size: 11px !important; font-weight: 600 !important; letter-spacing: .12em !important; text-transform: uppercase;
+  padding-block: 6px; border-block: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+}
+html[data-pj] .fixed.inset-0.z-\[110\] [data-stagger="2"].justify-between > span { color: var(--color-accent) !important; }
+html[data-pj] .fixed.inset-0.z-\[110\] .absolute.inset-x-0.bottom-0.h-\[3px\] { height: 2px !important; }
+html[data-pj] .fixed.inset-0.z-\[110\] button.h-11.w-11.rounded-full.bg-ink { background: var(--color-accent) !important; color: var(--pj-on-accent) !important; }
+
+/* Screensaver (components/screensaver/ambient-overlay.tsx) as "Intermission": the title large in the display serif,
+   a slow even crossfade, the clock small at the top end. Harbor's own timers, slides and dismiss stay as they are. */
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > img { transition: opacity 2000ms ease-in-out, transform 16000ms linear !important; }
+html[data-pj][data-pj-motion="off"] .fixed.inset-0.z-\[200\].cursor-none > img { transform: none !important; transition: opacity 2000ms ease-in-out !important; }
+@media (prefers-reduced-motion: reduce) { html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > img { transform: none !important; } }
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > .bg-gradient-to-t {
+  background: linear-gradient(90deg, rgb(0 0 0 / .84) 0%, rgb(0 0 0 / .5) 42%, rgb(0 0 0 / .12) 72%, rgb(0 0 0 / .3) 100%) !important;
+}
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > .absolute.inset-0[style*="radial-gradient"] {
+  background: radial-gradient(120% 90% at 30% 30%, color-mix(in srgb, var(--color-accent) 12%, #0b0a09), #050505 70%) !important;
+}
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > .top-0 svg { display: none; }
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > .top-0 span.font-display { font-size: 0 !important; }
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > .top-0 span.font-display::after {
+  content: "Intermission"; font-size: 22px; font-style: italic; font-weight: 400; letter-spacing: .01em; color: rgb(255 255 255 / .8);
+}
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > .bottom-0.items-end { top: 0; }
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > .bottom-0.items-end > .flex-col:first-child {
+  position: absolute; top: 40px; inset-inline-end: 48px; align-items: flex-end;
+}
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > .bottom-0.items-end > .flex-col:first-child > :first-child { font-size: 12px !important; letter-spacing: .2em !important; }
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > .bottom-0.items-end > .flex-col:first-child > :last-child {
+  font-family: var(--font-display); font-size: 44px !important; font-weight: 400 !important; margin-top: 6px;
+}
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > .bottom-0.items-end > .max-w-\[46\%\] {
+  max-width: min(70%, 1100px) !important; align-items: flex-start !important; text-align: start !important; margin: 0 !important;
+}
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > .bottom-0.items-end > .max-w-\[46\%\] > :first-child:not(:last-child) {
+  color: color-mix(in oklab, var(--color-accent) 55%, #fff) !important; font-size: 12px !important; letter-spacing: .24em !important;
+}
+html[data-pj] .fixed.inset-0.z-\[200\].cursor-none > .bottom-0.items-end > .max-w-\[46\%\] > :last-child {
+  font-family: var(--font-display); font-weight: var(--pj-d-weight, 500) !important; font-size: clamp(56px, 8vw, 128px) !important;
+  line-height: .95 !important; letter-spacing: -.025em !important; margin-top: 12px !important;
+  white-space: normal !important; display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+
+/* Your Streaming tiles (harbor-service-tile). Harbor tints every logo through --service-logo-filter, white by default,
+   which vanishes on light tiles. In the light scheme the logos print in near-black ink instead. */
+html[data-pj][data-pj-scheme="light"] { --service-logo-filter: brightness(0) opacity(.82); }
+html[data-pj][data-pj-scheme="light"] .harbor-service-tile { background: color-mix(in srgb, var(--color-raised) 70%, transparent) !important; }
+html[data-pj][data-pj-scheme="light"] .harbor-service-tile:hover { background: var(--color-raised) !important; }
+
+/* Streaming tile glow: pointing at a Your Streaming tile lights it from behind in the service's own color.
+   One radial light per tile, drawn once and only faded and scaled. Unknown services use the accent. */
+html[data-pj] .harbor-service-tile { position: relative; isolation: isolate; overflow: hidden; }
+html[data-pj][data-pj-brand="on"] .harbor-service-tile::before {
+  content: ""; position: absolute; inset: -20%; z-index: -1; pointer-events: none; opacity: 0; transform: scale(.7);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--pj-brand, var(--color-accent)) 70%, transparent), transparent);
+  transition: opacity .35s ease, transform .5s var(--pj-ease);
+}
+html[data-pj][data-pj-brand="on"] .harbor-service-tile:is(:hover, :focus-visible)::before { opacity: .55; transform: scale(1); }
+html[data-pj][data-pj-brand="on"][data-pj-scheme="light"] .harbor-service-tile:is(:hover, :focus-visible)::before { opacity: .4; }
+.harbor-service-tile:has(img[alt="Netflix"]) { --pj-brand: #e50914; }
+.harbor-service-tile:has(img[alt="Disney+"]) { --pj-brand: #1f4fe0; }
+.harbor-service-tile:has(img[alt="Hulu"]) { --pj-brand: #1ce783; }
+.harbor-service-tile:has(img[alt="Prime Video"]) { --pj-brand: #00a8e1; }
+.harbor-service-tile:has(img[alt="Apple TV+"]) { --pj-brand: #b8bec4; }
+.harbor-service-tile:has(img[alt="Max"]) { --pj-brand: #2a4dff; }
+.harbor-service-tile:has(img[alt="Paramount+"]) { --pj-brand: #0064ff; }
+.harbor-service-tile:has(img[alt="Peacock"]) { --pj-brand: #f5b700; }
+.harbor-service-tile:has(img[alt="Crunchyroll"]) { --pj-brand: #f47521; }
+.harbor-service-tile:has(img[alt="AMC+"]) { --pj-brand: #c9c9c9; }
+.harbor-service-tile:has(img[alt="STARZ"]) { --pj-brand: #9aa0a6; }
+.harbor-service-tile:has(img[alt="Shudder"]) { --pj-brand: #e3001b; }
+.harbor-service-tile:has(img[alt="CuriosityStream"]) { --pj-brand: #f7a600; }
+
+/* Marquee bulbs: Continue Watching progress becomes a row of bulbs, unlit along the track and lit up to where you
+   stopped. Static dots with one glow, no animation. */
+html[data-pj][data-pj-bulbs="on"] [data-continue-card-trigger] .absolute.inset-x-0.bottom-0.h-\[3px\] {
+  height: 7px !important; bottom: 4px !important; inset-inline: 10px !important; background-color: transparent !important;
+  background-image: radial-gradient(circle at 3.5px 3.5px, color-mix(in srgb, #fff 26%, transparent) 1.6px, transparent 2.3px) !important;
+  background-size: 10px 7px !important;
+}
+html[data-pj][data-pj-bulbs="on"] [data-continue-card-trigger] .absolute.inset-x-0.bottom-0.h-\[3px\] > .h-full.bg-accent {
+  background-color: transparent !important;
+  background-image: radial-gradient(circle at 3.5px 3.5px, #fff6dc 1.4px, color-mix(in srgb, var(--color-accent) 90%, #ffb347) 2.4px, transparent 3.2px) !important;
+  background-size: 10px 7px !important; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent) 80%, #ffb347));
+}

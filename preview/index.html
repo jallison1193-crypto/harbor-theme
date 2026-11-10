@@ -16,7 +16,7 @@
   <div class="pointer-events-none fixed inset-0 bg-canvas hz-backdrop"></div>
 
   <div id="root">
-    <div class="relative flex h-full hz-shell">
+    <div data-harbor-native-backdrop class="relative flex h-full min-w-0 flex-1 hz-shell">
       <div class="relative flex min-h-0 min-w-0 flex-1 flex-col hz-col">
 
         <!-- Home -->
@@ -40,6 +40,8 @@
         <div class="hidden" data-hz-view="movies">
           <main class="flex-1 overflow-y-auto bg-canvas hz-main hz-pad">
             <h1 class="font-display hz-h1">Movies</h1>
+            <!-- Loading placeholders (Tailwind animate-pulse, as in Harbor's row skeletons) -->
+            <div class="flex gap-3 hz-skel"><div class="aspect-[2/3] w-36 shrink-0 animate-pulse rounded-xl bg-elevated/40"></div><div class="aspect-[2/3] w-36 shrink-0 animate-pulse rounded-xl bg-elevated/40"></div><div class="aspect-[2/3] w-36 shrink-0 animate-pulse rounded-xl bg-elevated/40"></div><div class="aspect-[2/3] w-36 shrink-0 animate-pulse rounded-xl bg-elevated/40"></div><div class="aspect-[2/3] w-36 shrink-0 animate-pulse rounded-xl bg-elevated/40"></div></div>
             <div class="hz-grid" id="hz-grid"></div>
           </main>
         </div>
@@ -52,9 +54,19 @@
               <div class="hz-detail-fade"></div>
               <div class="hz-detail-copy">
                 <h1 class="font-display hz-h1" id="hz-detail-title"></h1>
+                <!-- heroPills (views/detail.tsx 0.9.113): year, ratings, runtime as Pills -->
+                <div class="mt-6 flex flex-wrap items-center gap-3 text-[13px] font-medium text-ink-muted hz-pills"><button type="button" class="flex items-center gap-1.5 rounded-full border border-edge-soft bg-canvas/85 px-3 py-1 transition-all">2024</button><span class="flex items-center gap-1.5 rounded-full border border-edge-soft bg-canvas/85 px-3 py-1 transition-all">PG-13</span><span class="flex items-center gap-1.5 rounded-full border border-edge-soft bg-canvas/85 px-3 py-1 transition-all">IMDb 7.8</span><div class="shrink-0"><button type="button" class="flex items-center gap-1.5 rounded-full border border-edge-soft bg-canvas/85 px-3 py-1 transition-all">2h 14m</button></div></div>
                 <p class="hz-p">A detail page. The large backdrop near the top is what Fathom samples for color when there's no hero.</p>
                 <div class="hz-actions"><button class="bg-ink hz-btn hz-btn-ink" type="button">Play</button><button class="bg-accent hz-btn hz-btn-accent" type="button">Trailer</button></div>
               </div>
+            </div>
+            <!-- Crew (views/detail.tsx + detail/credit.tsx, 0.9.113) -->
+            <div id="hz-eps" class="flex flex-col hz-eps hz-u"></div>
+            <div class="grid grid-cols-1 gap-x-12 gap-y-6 border-b border-edge-soft pb-12 sm:grid-cols-2 lg:grid-cols-3 hz-crew">
+              <div class="flex flex-col gap-1"><span class="text-[12px] font-medium uppercase tracking-[0.18em] text-ink-subtle">Director</span><span class="text-[15px] leading-snug text-ink"><span><button data-person-card class="cursor-pointer rounded text-ink">Mara Ellison</button></span></span></div>
+              <div class="flex flex-col gap-1"><span class="text-[12px] font-medium uppercase tracking-[0.18em] text-ink-subtle">Writers</span><span class="text-[15px] leading-snug text-ink"><span><button data-person-card class="cursor-pointer rounded text-ink">Mara Ellison</button>, </span><span><button data-person-card class="cursor-pointer rounded text-ink">Theo Lund</button></span></span></div>
+              <div class="flex flex-col gap-1"><span class="text-[12px] font-medium uppercase tracking-[0.18em] text-ink-subtle">Cinematography</span><span class="text-[15px] leading-snug text-ink"><span><button data-person-card class="cursor-pointer rounded text-ink">Ines Varga</button></span></span></div>
+              <div class="flex flex-col gap-1"><span class="text-[12px] font-medium uppercase tracking-[0.18em] text-ink-subtle">Music</span><span class="text-[15px] leading-snug text-ink"><span><span class="text-ink">Oskar Brandt</span></span></span></div>
             </div>
           </main>
         </div>
@@ -72,6 +84,8 @@
           <main class="flex h-full flex-col overflow-hidden hz-main hz-pad">
             <h1 class="font-display hz-h1" id="hz-generic-title"></h1>
             <div class="bg-elevated hz-card">This page has no top padding of its own (like Harbor's Calendar), so it shows whether the menu bar pushes content down correctly.</div>
+            <!-- Calendar month grid (views/calendar/month-grid.tsx + calendar-chip.tsx, 0.9.113), one week shown -->
+            <div class="flex flex-col gap-2 hz-cal"><div class="grid grid-cols-7 gap-2"><div class="px-2 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-subtle">Mon</div><div class="px-2 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-subtle">Tue</div><div class="px-2 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-subtle">Wed</div><div class="px-2 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-subtle">Thu</div><div class="px-2 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-subtle">Fri</div><div class="px-2 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-subtle">Sat</div><div class="px-2 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-subtle">Sun</div></div><div class="grid grid-cols-7 gap-2"><div class="flex min-h-[112px] flex-col gap-1.5 rounded-xl border p-2 border-edge-soft bg-elevated/15"><div class="flex items-baseline justify-between"><span class="text-[12.5px] font-semibold tabular-nums">9</span></div><div class="flex min-h-0 flex-col gap-1.5"></div></div><div class="flex min-h-[112px] flex-col gap-1.5 rounded-xl border p-2 border-edge-soft bg-elevated/15"><div class="flex items-baseline justify-between"><span class="text-[12.5px] font-semibold tabular-nums">10</span></div><div class="flex min-h-0 flex-col gap-1.5"><button type="button" class="group relative flex min-w-0 items-center gap-2 rounded-md bg-canvas/50 p-1 pe-2 text-start hz-chip"><div class="h-7 w-5 shrink-0 overflow-hidden rounded-[3px] bg-elevated/50"></div><span class="flex-1 truncate text-[11.5px] font-medium text-ink">Halcyon S2E4</span></button></div></div><div class="flex min-h-[112px] flex-col gap-1.5 rounded-xl border p-2 border-ink/60 bg-elevated/40"><div class="flex items-baseline justify-between"><span class="text-[12.5px] font-semibold tabular-nums">11</span></div><div class="flex min-h-0 flex-col gap-1.5"><button type="button" class="group relative flex min-w-0 items-center gap-2 rounded-md bg-canvas/50 p-1 pe-2 text-start hz-chip"><div class="h-7 w-5 shrink-0 overflow-hidden rounded-[3px] bg-elevated/50"></div><span class="flex-1 truncate text-[11.5px] font-medium text-ink">Low Tide</span></button><button type="button" class="group relative flex min-w-0 items-center gap-2 rounded-md bg-canvas/50 p-1 pe-2 text-start hz-chip"><div class="h-7 w-5 shrink-0 overflow-hidden rounded-[3px] bg-elevated/50"></div><span class="flex-1 truncate text-[11.5px] font-medium text-ink">Night Ferry S1E8</span></button></div></div><div class="flex min-h-[112px] flex-col gap-1.5 rounded-xl border p-2 border-edge-soft bg-elevated/15"><div class="flex items-baseline justify-between"><span class="text-[12.5px] font-semibold tabular-nums">12</span></div><div class="flex min-h-0 flex-col gap-1.5"></div></div><div class="flex min-h-[112px] flex-col gap-1.5 rounded-xl border p-2 border-edge-soft bg-elevated/15"><div class="flex items-baseline justify-between"><span class="text-[12.5px] font-semibold tabular-nums">13</span></div><div class="flex min-h-0 flex-col gap-1.5"><button type="button" class="group relative flex min-w-0 items-center gap-2 rounded-md bg-canvas/50 p-1 pe-2 text-start hz-chip"><div class="h-7 w-5 shrink-0 overflow-hidden rounded-[3px] bg-elevated/50"></div><span class="flex-1 truncate text-[11.5px] font-medium text-ink">Saltmarsh</span></button></div></div><div class="flex min-h-[112px] flex-col gap-1.5 rounded-xl border p-2 border-edge-soft bg-elevated/15"><div class="flex items-baseline justify-between"><span class="text-[12.5px] font-semibold tabular-nums">14</span></div><div class="flex min-h-0 flex-col gap-1.5"></div></div><div class="flex min-h-[112px] flex-col gap-1.5 rounded-xl border p-2 border-edge-soft/40 bg-canvas/30 opacity-50"><div class="flex items-baseline justify-between"><span class="text-[12.5px] font-semibold tabular-nums">15</span></div><div class="flex min-h-0 flex-col gap-1.5"></div></div></div></div>
           </main>
         </div>
       </div>
@@ -88,9 +102,23 @@
   <!-- WindowControls -->
   <div class="fixed end-3 top-3 z-[120] hz-wc" data-tauri-drag-region="false"><i></i><i></i><i></i></div>
 
-  <!-- Search overlay -->
-  <div class="harbor-search-backdrop hz-search" id="hz-search" hidden>
-    <div class="hz-search-box bg-elevated"><input type="search" placeholder="Search movies, shows, people" aria-label="Search"></div>
+  <!-- BackToTop (components/back-to-top.tsx); lives in the view in Harbor -->
+  <button type="button" id="hz-btt" aria-label="Back to top" title="Back to top" class="fixed bottom-5 end-5 z-40 flex h-8 w-8 items-center justify-center rounded-md border border-edge-soft/40 bg-canvas/90 text-ink-muted transition-[transform,opacity,background-color,color] duration-300 hover:bg-elevated hover:text-ink pointer-events-none translate-y-2 opacity-0 hz-u"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+  <!-- Search overlay (components/search/search-overlay.tsx, 0.9.113; portal to body) -->
+  <div class="fixed inset-0 z-[200] flex flex-col hz-search hz-u" id="hz-search" role="dialog" aria-modal="true" aria-label="Search" hidden>
+    <button type="button" aria-label="Close search" tabindex="-1" class="harbor-search-backdrop absolute inset-0 cursor-default harbor-search-scrim-in"></button>
+    <div class="relative mx-auto flex h-full w-full max-w-[1200px] flex-col px-6 py-6 sm:px-10 sm:py-10">
+      <div class="modal-panel relative flex max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-transparent bg-elevated/70 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.8)]">
+        <div class="flex shrink-0 items-center gap-3 border-b border-edge-soft/60 px-6">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 text-ink-subtle" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" placeholder="Search movies, shows, people" aria-label="Search" class="h-16 w-full bg-transparent text-[20px] text-ink outline-none placeholder:text-ink-subtle">
+          <kbd class="shrink-0 rounded-md border border-edge-soft px-1.5 py-0.5 text-[11px] text-ink-subtle">Esc</kbd>
+        </div>
+        <div class="relative isolate flex min-h-0 flex-col gap-6 overflow-y-auto px-7 py-6">
+          <section class="harbor-search-section flex flex-col gap-3"><h3 class="text-[12px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Top results</h3><div class="grid grid-cols-1 gap-2 sm:grid-cols-2"><button type="button" class="flex items-center gap-3 rounded-lg px-2 py-1 text-start hover:bg-elevated/50"><span class="h-14 w-10 shrink-0 overflow-hidden rounded-md bg-surface"></span><span class="flex min-w-0 flex-col"><span class="truncate text-[14px] font-medium text-ink">Low Tide</span><span class="text-[12px] text-ink-subtle">Movie · 2019</span></span></button><button type="button" class="flex items-center gap-3 rounded-lg px-2 py-1 text-start hover:bg-elevated/50"><span class="h-14 w-10 shrink-0 overflow-hidden rounded-md bg-surface"></span><span class="flex min-w-0 flex-col"><span class="truncate text-[14px] font-medium text-ink">The Salt Line</span><span class="text-[12px] text-ink-subtle">Show · 2022</span></span></button><button type="button" class="flex items-center gap-3 rounded-lg px-2 py-1 text-start hover:bg-elevated/50"><span class="h-14 w-10 shrink-0 overflow-hidden rounded-md bg-surface"></span><span class="flex min-w-0 flex-col"><span class="truncate text-[14px] font-medium text-ink">Lighthouse Keepers</span><span class="text-[12px] text-ink-subtle">Movie · 2011</span></span></button></div></section>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Modal -->
@@ -131,6 +159,10 @@
       <button type="button" data-hz="reload">Reload theme</button>
       <button type="button" data-hz="unload">Unload theme</button>
       <button type="button" data-hz="forget">Forget settings</button>
+      <button type="button" data-hz="saver">Screensaver</button>
+      <button type="button" data-hz="saver-deep">Screensaver deep idle</button>
+      <button type="button" data-hz="spoilers">Spoilers on/off</button>
+      <button type="button" data-hz="preview-style">Preview style</button>
     </div>
     <p class="hz-status" id="hz-status"></p>
   </details>

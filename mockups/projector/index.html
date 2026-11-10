@@ -1,0 +1,245 @@
+<title>Projector for Harbor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&family=Schibsted+Grotesk:wght@400..800&family=Brygada+1918:ital,wght@0,400..700;1,400..700&family=Albert+Sans:wght@300..800&family=Archivo:wdth,wght@62..125,100..900&display=swap">
+<link rel="stylesheet" href="projector.css">
+
+<div class="app" id="app">
+  <!-- Harbor's own sidebar, styled by Projector -->
+  <nav class="side" aria-label="Main">
+    <div class="side-brand"><span class="brand-mark">H</span><span class="lbl">arbor</span></div>
+    <div class="side-now" aria-hidden="true">
+      <div class="side-now-art"><img id="side-now-img" alt=""></div>
+      <p class="side-now-kicker">Now showing</p>
+      <p class="side-now-title" id="side-now-title"></p>
+    </div>
+    <button type="button" class="side-search" id="open-search">
+      <span class="lbl">Search</span><kbd>/</kbd>
+    </button>
+    <ul class="side-nav" id="side-nav">
+      <li><button type="button" data-harbor-nav="home" data-active><span class="lbl">Home</span></button></li>
+      <li><button type="button" data-harbor-nav="discover"><span class="lbl">Discover</span></button></li>
+      <li><button type="button" data-harbor-nav="movies"><span class="lbl">Movies</span></button></li>
+      <li><button type="button" data-harbor-nav="shows"><span class="lbl">Shows</span></button></li>
+      <li><button type="button" data-harbor-nav="anime"><span class="lbl">Anime</span></button></li>
+      <li><button type="button" data-harbor-nav="live"><span class="lbl">Live</span></button></li>
+      <li><button type="button" data-harbor-nav="calendar"><span class="lbl">Calendar</span></button></li>
+      <li><button type="button" data-harbor-nav="library"><span class="lbl">Library</span></button></li>
+      <li><button type="button" data-harbor-nav="settings"><span class="lbl">Settings</span></button></li>
+      <li class="side-pill" aria-hidden="true"></li>
+    </ul>
+    <div class="side-foot">
+      <button type="button" class="side-tool" id="open-palette"><span class="lbl">Commands</span> <kbd>Ctrl K</kbd></button>
+      <button type="button" class="side-tool" id="open-intermission"><span class="lbl">Intermission</span></button>
+      <button type="button" class="side-tool" id="open-settings"><span class="lbl">Customize</span> <kbd>Alt T</kbd></button>
+    </div>
+  </nav>
+
+  <main class="main" id="main" tabindex="-1">
+    <canvas class="spill" id="spill-a" aria-hidden="true"></canvas>
+    <canvas class="spill" id="spill-b" aria-hidden="true"></canvas>
+
+    <!-- HOME -->
+    <section class="view" data-view="home">
+      <div class="banner" id="banner" data-scroll-anchor="hero">
+        <div class="banner-art" id="banner-art"></div>
+        <div class="banner-shade" aria-hidden="true"></div>
+        <div class="banner-bars" aria-hidden="true"><i></i><i></i></div>
+        <div class="banner-copy">
+          <p class="banner-kicker" id="banner-kicker"></p>
+          <h1 class="banner-title" id="banner-title"></h1>
+          <p class="banner-meta" id="banner-meta"></p>
+          <p class="banner-text" id="banner-text"></p>
+          <div class="banner-actions">
+            <button type="button" class="btn btn-play" id="banner-play">Play</button>
+            <button type="button" class="btn btn-quiet" id="banner-details">Details</button>
+          </div>
+        </div>
+        <div class="banner-dots" id="banner-dots" role="tablist" aria-label="Featured titles"></div>
+      </div>
+      <div id="home-rows" class="rows"></div>
+    </section>
+
+    <!-- GRID PAGES -->
+    <section class="view" data-view="grid" hidden>
+      <header class="page-head">
+        <h1 class="page-title" id="grid-title">Movies</h1>
+        <p class="page-sub" id="grid-sub"></p>
+      </header>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <!-- DETAIL -->
+    <section class="view" data-view="detail" hidden>
+      <button type="button" class="back" id="detail-back">Back</button>
+      <div class="detail-hero">
+        <div class="detail-art" id="detail-art"></div>
+        <div class="banner-shade" aria-hidden="true"></div>
+        <div class="detail-copy">
+          <h1 class="detail-title" id="detail-title"></h1>
+          <p class="banner-meta" id="detail-meta"></p>
+          <div class="banner-actions">
+            <button type="button" class="btn btn-play" id="detail-play">Play</button>
+            <button type="button" class="btn btn-quiet">Add to watchlist</button>
+          </div>
+        </div>
+      </div>
+      <div class="detail-body">
+        <p class="detail-synopsis" id="detail-synopsis"></p>
+        <div class="credits" id="detail-credits" aria-label="Credits"></div>
+      </div>
+      <div id="detail-rows" class="rows"></div>
+    </section>
+
+    <!-- HARBOR SETTINGS PLACEHOLDER -->
+    <section class="view" data-view="settings" hidden>
+      <header class="page-head">
+        <h1 class="page-title">Settings</h1>
+        <p class="page-sub">Harbor's own settings live here. Projector only adds its panel.</p>
+      </header>
+      <button type="button" class="btn btn-play" id="settings-open-panel">Open Projector settings</button>
+    </section>
+  </main>
+</div>
+
+<!-- house lights: dims behind the hover preview, fades to black before play -->
+<div class="lights" id="lights" aria-hidden="true"></div>
+
+<!-- Harbor's hover preview, restyled -->
+<div class="preview" id="preview" hidden>
+  <div class="preview-art" id="preview-art"></div>
+  <div class="preview-body">
+    <h3 class="preview-title" id="preview-title"></h3>
+    <p class="preview-meta" id="preview-meta"></p>
+    <p class="preview-text" id="preview-text"></p>
+    <div class="preview-actions">
+      <button type="button" class="btn btn-play btn-sm" id="preview-play">Play</button>
+      <button type="button" class="btn btn-quiet btn-sm" id="preview-details">Details</button>
+    </div>
+  </div>
+</div>
+
+<!-- placeholder player -->
+<div class="player" id="player" hidden data-harbor-player>
+  <div class="player-art" id="player-art"></div>
+  <div class="player-top">
+    <p class="player-title" id="player-title"></p>
+    <button type="button" class="btn btn-quiet btn-sm" id="player-close">Close player <kbd>Esc</kbd></button>
+  </div>
+  <div class="player-bar"><i></i></div>
+  <p class="player-note">Placeholder player. In Harbor, every Projector layer steps aside here.</p>
+</div>
+
+<!-- Intermission: Harbor's idle screen, restyled -->
+<div class="intermission" id="intermission" hidden>
+  <div class="im-art" id="im-a"></div>
+  <div class="im-art" id="im-b"></div>
+  <div class="im-shade" aria-hidden="true"></div>
+  <p class="im-clock" id="im-clock"></p>
+  <div class="im-copy">
+    <p class="im-kicker">Intermission</p>
+    <h2 class="im-title" id="im-title"></h2>
+    <p class="im-meta" id="im-meta"></p>
+  </div>
+  <p class="im-hint">Press any key or click to come back</p>
+</div>
+
+<!-- command palette -->
+<div class="modal-wrap" id="palette-wrap" hidden>
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Command palette">
+    <input id="palette-input" class="palette-input" type="text" placeholder="Type a command or page" autocomplete="off" spellcheck="false" aria-controls="palette-list">
+    <ul class="palette-list" id="palette-list" role="listbox"></ul>
+    <p class="palette-foot"><span><kbd>Up</kbd> <kbd>Down</kbd> move</span><span><kbd>Enter</kbd> run</span><span><kbd>Esc</kbd> close</span></p>
+  </div>
+</div>
+
+<!-- shortcut sheet -->
+<div class="modal-wrap" id="keys-wrap" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="keys-title">
+    <h2 id="keys-title">Keyboard shortcuts</h2>
+    <dl class="keys">
+      <dt><kbd>Ctrl K</kbd></dt><dd>Command palette</dd>
+      <dt><kbd>Alt T</kbd></dt><dd>Projector settings</dd>
+      <dt><kbd>?</kbd></dt><dd>This sheet</dd>
+      <dt><kbd>/</kbd></dt><dd>Harbor search</dd>
+      <dt><kbd>Left</kbd> <kbd>Right</kbd></dt><dd>Previous or next featured title, while the banner has focus</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Close, or go back from a title</dd>
+    </dl>
+    <button type="button" class="btn btn-quiet btn-sm" data-close>Close</button>
+  </div>
+</div>
+
+<!-- Projector settings panel -->
+<aside class="panel" id="panel" aria-label="Projector settings" hidden>
+  <header class="panel-head">
+    <h2>Projector</h2>
+    <button type="button" class="btn btn-quiet btn-sm" id="panel-close">Close</button>
+  </header>
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="look" aria-selected="true">Look</button>
+    <button type="button" role="tab" data-tab="cinema" aria-selected="false">Cinema</button>
+    <button type="button" role="tab" data-tab="motion" aria-selected="false">Motion</button>
+  </div>
+  <div class="panel-body">
+    <div data-pane="look">
+      <fieldset class="field">
+        <legend>Appearance</legend>
+        <div class="seg" id="seg-appearance">
+          <button type="button" data-v="dark">Dark</button>
+          <button type="button" data-v="light">Light</button>
+          <button type="button" data-v="time">Time of day</button>
+          <button type="button" data-v="windows">Windows</button>
+        </div>
+        <div class="timesim" id="timesim" hidden>
+          <label for="time-slider">Simulated time <output id="time-out"></output></label>
+          <input id="time-slider" type="range" min="0" max="23.75" step="0.25" value="20">
+          <p class="hint">Light from 7:00 and warming through the afternoon. Dark from 18:00, cooling toward midnight. In the real theme this follows the clock.</p>
+        </div>
+      </fieldset>
+      <fieldset class="field">
+        <legend>Navigation</legend>
+        <div class="seg" id="seg-nav">
+          <button type="button" data-v="house">House</button>
+          <button type="button" data-v="marquee">Marquee</button>
+          <button type="button" data-v="programme">Programme</button>
+          <button type="button" data-v="rail">Rail</button>
+        </div>
+        <p class="hint" id="nav-hint"></p>
+      </fieldset>
+      <fieldset class="field">
+        <legend>Film stock</legend>
+        <div class="stocks" id="stocks"></div>
+      </fieldset>
+      <fieldset class="field">
+        <legend>Type</legend>
+        <div class="types" id="types"></div>
+      </fieldset>
+      <fieldset class="field">
+        <legend>Accent</legend>
+        <div class="seg" id="seg-accent">
+          <button type="button" data-v="artwork">From the artwork</button>
+          <button type="button" data-v="stock">Film stock's own</button>
+        </div>
+      </fieldset>
+    </div>
+    <div data-pane="cinema" hidden>
+      <div class="toggles" id="toggles-cinema"></div>
+    </div>
+    <div data-pane="motion" hidden>
+      <fieldset class="field">
+        <legend>Animations</legend>
+        <div class="seg" id="seg-motion">
+          <button type="button" data-v="on">On</button>
+          <button type="button" data-v="off">Off</button>
+          <button type="button" data-v="system">Follow Windows</button>
+        </div>
+      </fieldset>
+      <p class="hint">Projector only moves things when you act or scroll. Nothing runs while the page is still.</p>
+    </div>
+  </div>
+</aside>
+
+<p class="toast" id="toast" role="status" aria-live="polite"></p>
+
+<script src="projector.js"></script>
