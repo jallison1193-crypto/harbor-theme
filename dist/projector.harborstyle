@@ -41,7 +41,11 @@ html[data-pj] {
 }
 
 /* 2. Appearance modes ---------------------------------------------------- */
-html[data-pj] body { background: var(--color-canvas); }
+/* Harbor keeps html, body and #root transparent and paints the canvas itself (ThemeBackdrop). The body gets the canvas
+   only while no player is mounted: on Windows the video is a native mpv layer behind the transparent web view, so any
+   opaque body would cover playback. */
+html[data-pj]:not(:has([data-harbor-player])) body { background: var(--color-canvas); }
+html:has([data-harbor-player]) body { background: transparent !important; }
 
 /* 3. Projector's own layers (spill, house lights, grain): milestone 2 ----- */
 /* Every layer steps aside while Harbor's player is mounted: on Windows the video can be a native layer
@@ -710,7 +714,7 @@ html[data-pj][data-pj-bulbs="on"] [data-continue-card-trigger] .absolute.inset-x
 /* Harbor hides its chrome for the player, the play picker and Settings. Projector's layers go with it (the panel is
    also closed by js/50-tools.js), so nothing can cover the native video layer on Windows. */
 html[data-chrome-hidden] :is(#projector-palette, #projector-keys, #projector-panel, #projector-toast, #projector-customize),
-html:has([data-harbor-player]) :is(#projector-palette, #projector-keys, #projector-panel, #projector-toast) { display: none !important; }
+html:has([data-harbor-player]) :is(#projector-palette, #projector-keys, #projector-panel, #projector-toast, #projector-welcome) { display: none !important; }
 
 /* ---------- Customize, in Harbor's sidebar footer ----------
    The 72px icon column shows only the icon; from 180px (Harbor's 240px sidebar) the label and key hint show too.
@@ -721,9 +725,15 @@ html:has([data-harbor-player]) :is(#projector-palette, #projector-keys, #project
   display: flex; align-items: center; justify-content: center; gap: 10px;
   width: 36px; height: 36px; margin: 0 auto 4px; padding: 0; border: 0; border-radius: 8px;
   background: transparent; color: var(--color-ink-subtle); font-size: 13px; font-weight: 500; line-height: 20px; cursor: pointer;
-  transition: background-color .15s ease, color .15s ease;
+  position: relative; isolation: isolate;
 }
-#projector-customize:hover, #projector-customize[aria-expanded="true"] { color: var(--color-ink-muted); background-color: color-mix(in srgb, var(--color-elevated) 60%, transparent); }
+/* The hover fill is drawn once and faded with opacity (only transform and opacity animate); the text color swaps at once. */
+#projector-customize::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: color-mix(in srgb, var(--color-elevated) 60%, transparent); opacity: 0; transition: opacity .15s ease;
+}
+#projector-customize:hover, #projector-customize[aria-expanded="true"] { color: var(--color-ink-muted); }
+#projector-customize:is(:hover, [aria-expanded="true"])::before { opacity: 1; }
 #projector-customize svg { flex: none; }
 #projector-customize[aria-expanded="true"] svg { color: var(--color-accent); }
 #projector-customize .pjt-cust-label, #projector-customize kbd { display: none; }
@@ -834,9 +844,15 @@ html:has([data-harbor-player]) :is(#projector-palette, #projector-keys, #project
 .pjt-card {
   display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: center; padding: 10px; text-align: start;
   border-radius: var(--pj-r-sm, 8px); border: 1px solid var(--color-edge-soft); background: var(--color-canvas);
-  transition: border-color .15s ease;
+  position: relative;
 }
-.pjt-card:hover { border-color: var(--color-edge); }
+/* Hover edge drawn once as an inset ring and faded with opacity. */
+.pjt-card::after {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--color-edge); opacity: 0; transition: opacity .15s ease;
+}
+.pjt-card:hover::after { opacity: 1; }
+.pjt-card[aria-checked="true"]::after { display: none; }
 .pjt-card[aria-checked="true"] { border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
 .pjt-card b { display: block; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--color-ink); }
 .pjt-card small { display: block; font-size: 12px; line-height: 16px; color: var(--color-ink-muted); }

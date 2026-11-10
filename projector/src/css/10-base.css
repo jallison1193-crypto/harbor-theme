@@ -16,7 +16,11 @@ html[data-pj] {
 }
 
 /* 2. Appearance modes ---------------------------------------------------- */
-html[data-pj] body { background: var(--color-canvas); }
+/* Harbor keeps html, body and #root transparent and paints the canvas itself (ThemeBackdrop). The body gets the canvas
+   only while no player is mounted: on Windows the video is a native mpv layer behind the transparent web view, so any
+   opaque body would cover playback. */
+html[data-pj]:not(:has([data-harbor-player])) body { background: var(--color-canvas); }
+html:has([data-harbor-player]) body { background: transparent !important; }
 
 /* 3. Projector's own layers (spill, house lights, grain): milestone 2 ----- */
 /* Every layer steps aside while Harbor's player is mounted: on Windows the video can be a native layer
