@@ -1,16 +1,24 @@
-// Bundles src/ into importable Harbor theme files in dist/.
-// Usage: node build/build.mjs
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+// Bundles a theme's src/ into importable Harbor theme files in dist/.
+// Usage: node build/build.mjs <theme>   (theme folder: fathom or projector; default fathom)
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const read = (p) => readFileSync(join(root, p), "utf8").replace(/\r\n/g, "\n");
+const id = (process.argv[2] || "fathom").replace(/[\\/]+$/, "");
+if (!/^[a-z0-9-]+$/.test(id)) { console.error(`Unknown theme folder: ${id}`); process.exit(1); }
+const read = (p) => readFileSync(join(root, id, "src", p), "utf8").replace(/\r\n/g, "\n");
+// A theme's CSS or JS can be one file (theme.css / theme.js) or a folder of parts (css/ / js/) joined in name order.
+const joined = (dir, single) => {
+  const d = join(root, id, "src", dir);
+  if (!existsSync(d)) return read(single);
+  return readdirSync(d).filter((f) => f.endsWith("." + dir)).sort().map((f) => read(join(dir, f)).trimEnd() + "\n").join("\n");
+};
 
-const manifest = JSON.parse(read("src/manifest.json"));
-const css = read("src/theme.css").trim();
-const js = read("src/theme.js").replaceAll("__FATHOM_VERSION__", manifest.version).trim();
-const html = read("src/theme.html").trim();
+const manifest = JSON.parse(read("manifest.json"));
+const css = joined("css", "theme.css").trim();
+const js = joined("js", "theme.js").replace(/__(FATHOM|THEME)_VERSION__/g, manifest.version).trim();
+const html = read("theme.html").trim();
 
 // Same checks Harbor's importer runs (src/lib/custom-themes.ts), so a bad build fails here, not in the app.
 const TOKEN_KEYS = [
@@ -73,7 +81,7 @@ const style = [
 ].join("\n");
 
 mkdirSync(join(root, "dist"), { recursive: true });
-writeFileSync(join(root, "dist/fathom.json"), JSON.stringify(theme, null, 2) + "\n");
-writeFileSync(join(root, "dist/fathom.harborstyle"), style);
+writeFileSync(join(root, `dist/${id}.json`), JSON.stringify(theme, null, 2) + "\n");
+writeFileSync(join(root, `dist/${id}.harborstyle`), style);
 const kb = (s) => (Buffer.byteLength(s) / 1024).toFixed(1) + " KB";
-console.log(`Built Fathom ${manifest.version}: css ${kb(css)}, js ${kb(js)} -> dist/fathom.json, dist/fathom.harborstyle`);
+console.log(`Built ${manifest.name} ${manifest.version}: css ${kb(css)}, js ${kb(js)} -> dist/${id}.json, dist/${id}.harborstyle`);

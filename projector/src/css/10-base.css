@@ -1,0 +1,41 @@
+/* Projector for Harbor.
+   A dark room lit by the artwork. Colors come from js/00-core.js, which writes Harbor's 12 tokens for the chosen
+   appearance and film stock. Performance rules (docs/projector-plan.md, section 5): only transform and opacity
+   animate, no backdrop-filter, costly images are drawn once and then only moved or faded.
+   The stylesheet is built by joining projector/src/css/*.css in name order (build/build.mjs).
+   Fragile rules (anything that depends on Harbor's internal utility classes) sit at the end of each file under a
+   "Fragile" heading, each with the Harbor version it was checked against. */
+
+/* 1. Variables and film stocks ------------------------------------------ */
+/* Tokens and fonts are written by js/00-core.js into <style id="projector-vars">. These are Projector's own. */
+html[data-pj] {
+  --pj-r-poster: 6px;
+  --pj-r-md: 12px;
+  --pj-r-sm: 8px;
+  --pj-ease: cubic-bezier(.22, .61, .36, 1);
+}
+
+/* 2. Appearance modes ---------------------------------------------------- */
+html[data-pj] body { background: var(--color-canvas); }
+
+/* 3. Projector's own layers (spill, house lights, grain): milestone 2 ----- */
+/* Every layer steps aside while Harbor's player is mounted: on Windows the video can be a native layer
+   behind a transparent web view, so anything painted here would cover it. */
+html:has([data-harbor-player]) [id^="projector-layer"] { display: none !important; }
+
+/* 10. Type, performance and motion --------------------------------------- */
+html[data-pj] .font-display {
+  font-weight: var(--pj-d-weight);
+  font-stretch: var(--pj-d-stretch);
+  letter-spacing: var(--pj-d-track);
+}
+html[data-pj][data-pj-motion="off"] *,
+html[data-pj][data-pj-motion="off"] *::before,
+html[data-pj][data-pj-motion="off"] *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+}
+
+/* Fragile rules live at the end of each css/ file under a "Fragile" heading. Harbor's hover preview (fixed layer at
+   z-[110]) and screensaver have no stable selectors; their rules go in css/40-features.css under that heading. */

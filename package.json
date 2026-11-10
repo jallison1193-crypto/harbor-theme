@@ -1,11 +1,13 @@
 {
-  "name": "harbor-theme-fathom",
+  "name": "harbor-themes",
   "version": "1.0.0",
   "private": true,
-  "description": "Fathom: a dark liquid-glass theme for Harbor with depth and a built-in settings panel.",
+  "description": "Harbor themes: Fathom (liquid glass) and Projector (a dark room lit by the artwork).",
   "type": "module",
   "scripts": {
-    "build": "node build/build.mjs",
-    "preview": "python -m http.server 5178 --bind 127.0.0.1"
+    "build": "node build/build.mjs fathom && node build/build.mjs projector",
+    "build:fathom": "node build/build.mjs fathom",
+    "build:projector": "node build/build.mjs projector",
+    "preview": "python -m http.server 5179 --bind 127.0.0.1"
   }
 }

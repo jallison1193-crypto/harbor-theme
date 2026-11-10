@@ -1,0 +1,153 @@
+/* 4. Navigation: Marquee -------------------------------------------------
+   Styles Harbor's own sidebar (layout "sidebar": aside[data-harbor-sidebar], 72px icons, 240px with labels from
+   1024px). The sidebar is lit by what is showing: a faint accent tint at the top, a "Now showing" thumbnail of the
+   banner (js/20-nav.js), and the current page lit by a lamp. Group headings depend on Harbor's internal classes, so
+   they are under Fragile at the end of this file. Nothing here animates except opacity. */
+html[data-pj] aside[data-harbor-sidebar] {
+  container: pj-side / inline-size;
+  background-color: var(--color-canvas);
+  background-image: radial-gradient(140% 46% at 0 0, color-mix(in srgb, var(--color-accent) 13%, var(--color-canvas)), var(--color-canvas) 72%);
+}
+html[data-pj] aside[data-harbor-sidebar] [data-harbor-nav] {
+  height: 38px;
+  border-radius: var(--pj-r-sm);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-ink-muted);
+  background-color: transparent;
+}
+html[data-pj] aside[data-harbor-sidebar] [data-harbor-nav]:hover { color: var(--color-ink); background-color: color-mix(in srgb, var(--color-ink) 6%, transparent); }
+/* the lit page: a lamp on the left edge throwing accent light across the row */
+html[data-pj] aside[data-harbor-sidebar] [data-harbor-nav][data-active] {
+  color: var(--color-ink);
+  background-color: transparent;
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 24%, transparent), color-mix(in srgb, var(--color-accent) 5%, transparent) 70%, transparent);
+}
+html[data-pj] aside[data-harbor-sidebar] [data-harbor-nav]::before {
+  content: ""; position: absolute; left: 0; top: 50%; width: 3px; height: 18px; margin-top: -9px;
+  border-radius: 0 2px 2px 0; background: var(--color-accent); pointer-events: none; opacity: 0;
+  box-shadow: 0 0 10px 1px var(--color-accent), 0 0 22px 2px color-mix(in srgb, var(--color-accent) 45%, transparent);
+  transition: opacity .25s var(--pj-ease);
+}
+html[data-pj] aside[data-harbor-sidebar] [data-harbor-nav][data-active]::before { opacity: 1; }
+html[data-pj] aside[data-harbor-sidebar] [data-harbor-nav][data-active] svg { opacity: 1; color: var(--color-accent); }
+html[data-pj] aside[data-harbor-sidebar] [data-harbor-nav]:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* "Now showing": built by js/20-nav.js, placed under Harbor's logo, only when the sidebar shows labels */
+#projector-now { display: none; }
+@container pj-side (min-width: 180px) {
+  #projector-now:not([hidden]) { display: grid; gap: 4px; margin: 6px 16px 4px; }
+}
+/* Shorter windows: a compact row (small thumbnail beside the title) so every page still fits without scrolling. */
+@media (max-height: 1000px) {
+  @container pj-side (min-width: 180px) {
+    #projector-now:not([hidden]) { grid-template-columns: 76px minmax(0, 1fr); column-gap: 10px; row-gap: 2px; align-content: center; margin-top: 2px; }
+    #projector-now .pj-now-art { grid-row: span 2; margin-bottom: 0; }
+    #projector-now .pj-now-kicker { align-self: end; }
+    #projector-now .pj-now-title { align-self: start; font-size: 15px; line-height: 19px; }
+  }
+}
+#projector-now .pj-now-art {
+  position: relative; aspect-ratio: 16 / 9; margin-bottom: 4px; overflow: hidden; border-radius: var(--pj-r-sm); background: #000;
+  box-shadow: 0 10px 28px -12px color-mix(in srgb, var(--color-accent) 70%, transparent), inset 0 0 0 1px rgb(255 255 255 / .06);
+}
+#projector-now img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: var(--pj-grade); }
+#projector-now.pj-swap img, #projector-now.pj-swap .pj-now-title { animation: pj-fade .6s var(--pj-ease) both; }
+#projector-now .pj-now-kicker { margin: 0; font-size: 11px; line-height: 14px; font-weight: 600; color: var(--color-accent); }
+#projector-now .pj-now-title {
+  margin: 0; font-family: var(--font-display); font-weight: var(--pj-d-weight); font-stretch: var(--pj-d-stretch); letter-spacing: var(--pj-d-track);
+  font-size: 17px; line-height: 21px; color: var(--color-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+@keyframes pj-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Navigation bar at the top or bottom (data-pj-nav, set from the panel's Look tab by js/20-nav.js). Harbor's own
+   sidebar is laid out as a row: its shell turns from a row into a column, the aside spans the window, and every
+   group inside it runs sideways. Marquee (names) or Icons is still Harbor's own collapse setting. "Now showing" and
+   the group headings belong to the vertical sidebar, so the bar drops its container query and they stay hidden.
+   Class names here follow Harbor 1.0.3 chrome/sidebar.tsx and are Fragile. */
+html[data-pj-nav="top"] [data-harbor-native-backdrop]:has(> aside[data-harbor-sidebar]) { flex-direction: column; }
+html[data-pj-nav="bottom"] [data-harbor-native-backdrop]:has(> aside[data-harbor-sidebar]) { flex-direction: column-reverse; }
+html[data-pj-nav="top"] aside[data-harbor-sidebar],
+html[data-pj-nav="bottom"] aside[data-harbor-sidebar] {
+  container-type: normal;
+  width: 100% !important; height: 60px; flex-direction: row; align-items: center; gap: 6px; padding-inline: 10px;
+  border-inline-end: 0 !important;
+  background-image: radial-gradient(60% 140% at 0 0, color-mix(in srgb, var(--color-accent) 12%, var(--color-canvas)), var(--color-canvas) 70%);
+}
+html[data-pj-nav="top"] aside[data-harbor-sidebar] { border-bottom: 1px solid var(--color-edge-soft); }
+html[data-pj-nav="bottom"] aside[data-harbor-sidebar] { border-top: 1px solid var(--color-edge-soft); }
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] > [data-harbor-sidebar-brand] {
+  height: 100% !important; flex: none; padding-inline: 6px 4px;
+}
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) #projector-now { display: none !important; }
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] > div:has(> .overflow-y-auto) {
+  flex-direction: row; min-width: 0; height: 100%;
+}
+/* Harbor's scroll fades and arrows are for a vertical list. */
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] > div:has(> .overflow-y-auto) > :not(.overflow-y-auto) { display: none !important; }
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] .overflow-y-auto {
+  flex-direction: row; align-items: center; gap: 4px; padding: 0 6px !important;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+}
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] .overflow-y-auto > .flex-col { flex-direction: row; flex: none; gap: 2px; }
+/* Harbor's group divider becomes a short upright line. */
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] .overflow-y-auto > [data-tauri-drag-region]:not(.flex-1) {
+  flex: none; width: 1px; height: 22px !important; margin-inline: 8px; padding: 0 !important; background: var(--color-edge-soft);
+}
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] .overflow-y-auto > [data-tauri-drag-region]:not(.flex-1) > * { display: none; }
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] .overflow-y-auto > [data-tauri-drag-region].flex-1 { align-self: stretch; min-width: 16px; }
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] [data-harbor-nav] {
+  flex: none; width: auto; height: 40px; padding-inline: 12px !important; gap: 10px; justify-content: center;
+}
+/* The lamp moves to the edge that faces the page: under the item on a top bar, over it on a bottom bar. */
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] [data-harbor-nav]::before {
+  left: 50%; width: 18px; height: 3px; margin: 0 0 0 -9px;
+}
+html[data-pj-nav="top"] aside[data-harbor-sidebar] [data-harbor-nav]::before { top: auto; bottom: -1px; border-radius: 2px 2px 0 0; }
+html[data-pj-nav="bottom"] aside[data-harbor-sidebar] [data-harbor-nav]::before { top: -1px; border-radius: 0 0 2px 2px; }
+html[data-pj-nav="top"] aside[data-harbor-sidebar] [data-harbor-nav][data-active] {
+  background-image: linear-gradient(to top, color-mix(in srgb, var(--color-accent) 24%, transparent), color-mix(in srgb, var(--color-accent) 4%, transparent) 75%, transparent);
+}
+html[data-pj-nav="bottom"] aside[data-harbor-sidebar] [data-harbor-nav][data-active] {
+  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--color-accent) 24%, transparent), color-mix(in srgb, var(--color-accent) 4%, transparent) 75%, transparent);
+}
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] > [data-harbor-sidebar-footer] {
+  flex: none; display: flex; flex-direction: row; align-items: center; gap: 4px; padding: 0 !important;
+}
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] > [data-harbor-sidebar-footer] > * { margin: 0 !important; padding: 0 !important; }
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] > [data-harbor-sidebar-footer] > .flex-col { flex-direction: row; }
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] > [data-harbor-sidebar-footer] :is(button, a) { height: 40px; }
+/* Room for the pages: the bar keeps Harbor's mark without the wordmark, the footer buttons as icons, and the
+   profile as its avatar (the rest of the chip is clipped, it still opens Harbor's account menu). */
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] > [data-harbor-sidebar-brand]:has([data-harbor-sidebar-mark]) > :not([data-harbor-sidebar-mark]) { display: none; }
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] > [data-harbor-sidebar-footer] [data-harbor-sidebar-label] { display: none !important; }
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] > [data-harbor-sidebar-footer] :is(button, a):has([data-harbor-sidebar-icon]) { width: 40px; padding: 0 !important; justify-content: center; }
+html:is([data-pj-nav="top"], [data-pj-nav="bottom"]) aside[data-harbor-sidebar] > [data-harbor-sidebar-footer] > :last-child:not(:only-child) {
+  width: 44px; flex: none; overflow: hidden; border-radius: 999px;
+}
+
+
+/* ---- Fragile: Harbor sidebar internals ---------------------------------------------------- */
+/* Marquee group headings. Checked against Harbor 0.9.113 chrome/sidebar.tsx: the nav scrolls in a div with
+   .overflow-y-auto holding the main pages group (.flex-col), a divider ([data-tauri-drag-region].py-2.5) and the
+   collections group (.flex-col). Headings only show when the sidebar has labels (240px). */
+@container pj-side (min-width: 180px) {
+  html[data-pj] aside[data-harbor-sidebar] .overflow-y-auto > .flex-col:first-child::before,
+  html[data-pj] aside[data-harbor-sidebar] .overflow-y-auto > [data-tauri-drag-region] + .flex-col::before,
+  html[data-pj] aside[data-harbor-sidebar] .overflow-y-auto > .flex-col:first-child > [data-harbor-nav="live"]:not(:first-child)::after {
+    display: block; padding: 12px 12px 6px; pointer-events: none;
+    font-family: var(--font-display); font-style: italic; font-weight: 400; font-size: 14px; line-height: 16px;
+    color: var(--color-ink-subtle); text-align: start;
+  }
+  html[data-pj] aside[data-harbor-sidebar] .overflow-y-auto > .flex-col:first-child::before { content: "Browse"; padding-top: 2px; }
+  html[data-pj] aside[data-harbor-sidebar] .overflow-y-auto > [data-tauri-drag-region] + .flex-col::before { content: "Yours"; }
+  /* "On air" sits above Live TV. It belongs to the button, so it is placed above it and ignores the pointer. */
+  html[data-pj] aside[data-harbor-sidebar] .overflow-y-auto > .flex-col:first-child > [data-harbor-nav="live"]:not(:first-child) { margin-top: 32px; overflow: visible; }
+  html[data-pj] aside[data-harbor-sidebar] .overflow-y-auto > .flex-col:first-child > [data-harbor-nav="live"]:not(:first-child)::after {
+    content: "On air"; position: absolute; left: 0; bottom: 100%; padding-bottom: 6px;
+  }
+  /* the headings replace Harbor's divider line */
+  html[data-pj] aside[data-harbor-sidebar] .overflow-y-auto > [data-tauri-drag-region].py-2\.5 { padding: 4px 0; }
+  html[data-pj] aside[data-harbor-sidebar] .overflow-y-auto > [data-tauri-drag-region].py-2\.5 > * { display: none; }
+  html[data-pj] aside[data-harbor-sidebar] .overflow-y-auto > .flex-col { gap: 2px; }
+}

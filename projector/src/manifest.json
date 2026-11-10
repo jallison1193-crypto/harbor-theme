@@ -1,0 +1,25 @@
+{
+  "name": "Projector",
+  "blurb": "A dark room lit by the artwork. Film stocks, light or dark or time of day. Press Alt+T.",
+  "version": "0.1.0",
+  "swatch": ["#131314", "#212124", "#e9c37f"],
+  "layout": "sidebar",
+  "cardStyle": "flat",
+  "buttonStyle": "flat",
+  "fontPair": "general-sans",
+  "bokeh": false,
+  "tokens": {
+    "--color-canvas": "#131314",
+    "--color-surface": "#19191b",
+    "--color-elevated": "#212124",
+    "--color-raised": "#2a2a2e",
+    "--color-ink": "#efeee9",
+    "--color-ink-muted": "#a8a7a1",
+    "--color-ink-subtle": "#8a8983",
+    "--color-edge": "#efeee91a",
+    "--color-edge-soft": "#efeee90f",
+    "--color-accent": "#e9c37f",
+    "--color-accent-soft": "#e9c37f2e",
+    "--color-danger": "#f0716b"
+  }
+}
