@@ -10,6 +10,7 @@
        above Harbor's own CSS scale-in. Harbor still owns opening, placement, content, its staggered rows and closing.
        Watched with a childList-only observer on #root, so it costs nothing while no preview opens. */
     let lastAnchor = null, rootObs = null, watchedRoot = null;
+    let grownPanel = null, growAnim = null; // the one preview Projector touched, so unloading can undo it
     const PANEL = '[role="presentation"]';
     const isLayer = (n) => n.nodeType === 1 && n.classList.contains("fixed") && n.classList.contains("inset-0") && n.classList.contains("z-[110]");
 
@@ -32,12 +33,19 @@
       const dy = (c.top + c.height / 2) - (p.top + p.height / 2);
       // Start just covering the card, so the window reads as coming out of it.
       const s = Math.max(0.3, Math.min(1, Math.max(c.width / p.width, c.height / p.height)));
+      undoGrow();
       panel.setAttribute("data-pj-grown", "");
-      panel.animate([
+      grownPanel = panel;
+      growAnim = panel.animate([
         { transformOrigin: "50% 50%", transform: `perspective(1000px) translate3d(${dx}px, ${dy}px, 0) scale(${s}) rotateX(12deg)`, opacity: 0 },
         { transformOrigin: "50% 50%", opacity: 1, offset: 0.3 },
         { transformOrigin: "50% 50%", transform: "perspective(1000px) translate3d(0, 0, 0) scale(1) rotateX(0deg)", opacity: 1 },
       ], { duration: 560, easing: "cubic-bezier(.4, .1, .2, 1.04)" });
+      growAnim.onfinish = () => { growAnim = null; };
+    }
+    function undoGrow() {
+      if (growAnim) { growAnim.cancel(); growAnim = null; }
+      if (grownPanel) { grownPanel.removeAttribute("data-pj-grown"); grownPanel = null; }
     }
     function onRoot(muts) {
       for (const m of muts) for (const n of m.addedNodes) {
@@ -57,5 +65,5 @@
 
     hooks.apply.push(() => setAttr("pj-grow", state.grow && motionOn() ? "on" : "off"));
     hooks.scan.push(watchRoot);
-    hooks.dispose.push(() => { if (rootObs) rootObs.disconnect(); rootObs = watchedRoot = lastAnchor = null; });
+    hooks.dispose.push(() => { if (rootObs) rootObs.disconnect(); undoGrow(); rootObs = watchedRoot = lastAnchor = null; });
   }
